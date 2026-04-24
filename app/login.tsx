@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
@@ -41,7 +41,7 @@ export default function LoginScreen() {
       setCodeSent(true);
       Alert.alert(
         'Check your email',
-        'We sent you a 6-digit code for ReelWall.'
+        'We have sent you a secure login code.'
       );
     } catch (error: any) {
       console.log('Send code error:', error);

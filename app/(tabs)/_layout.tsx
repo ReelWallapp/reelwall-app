@@ -50,6 +50,7 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: styles.tabBar,
+        tabBarItemStyle: { flex:1,},
         tabBarActiveTintColor: '#F2C94C',
         tabBarInactiveTintColor: '#8FA3B8',
         tabBarLabelStyle: {
@@ -117,7 +118,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="vault"
         options={{
-          title: 'LiveWell Vault',
+          title: 'Vault',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? 'shield-checkmark' : 'shield-checkmark-outline'}
@@ -145,6 +146,7 @@ const styles = StyleSheet.create({
     height: 88,
     paddingBottom: 12,
     paddingTop: 10,
+    paddingHorizontal: 16,
   },
   captureWrapper: {
     top: -26,

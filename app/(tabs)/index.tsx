@@ -336,11 +336,23 @@ const filterDeletedCatches = (items: CatchItem[], deletedIds: string[]) => {
         catches.map((item) => (item.id === selectedCatch.id ? updatedCatch : item))
       );
 
-      setCatches(updated);
-      setSelectedCatch(updatedCatch);
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+   setCatches(updated);
+setSelectedCatch(updatedCatch);
+await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
 
-      setSaveSuccess(true);
+Keyboard.dismiss();
+
+setTimeout(() => {
+  setSaveSuccess(true);
+
+  setTimeout(() => {
+    setSaveSuccess(false);
+  }, 3000);
+}, 100);
+
+setTimeout(() => {
+  setSaveSuccess(false);
+}, 2000);
       Keyboard.dismiss();
     } catch (error) {
       console.log('Save all error:', error);
@@ -758,6 +770,11 @@ const filterDeletedCatches = (items: CatchItem[], deletedIds: string[]) => {
                       </Text>
                     </TouchableOpacity>
                   </View>
+                  {saveSuccess && (
+  <Text style={styles.saveSuccessText}>
+    Changes saved successfully ✓
+  </Text>
+)}
 
                   <View
                     style={[
@@ -1273,7 +1290,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   saveDetailsButtonSaved: {
-    backgroundColor: '#1C466C',
+    backgroundColor: '#2ECC71',
   },
   saveDetailsButtonText: {
     color: '#FFFFFF',
@@ -1333,4 +1350,11 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     paddingRight: 12,
   },
+  saveSuccessText: {
+  color: '#4CAF50',
+  fontSize: 13,
+  fontWeight: '700',
+  textAlign: 'center',
+  marginTop: 8,
+},
 });

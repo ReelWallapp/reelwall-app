@@ -249,6 +249,33 @@ export default function Profile() {
       ]
     );
   };
+  
+ const handleLogout = () => {
+  Alert.alert(
+    'Log Out',
+    'You’ll need to log back in to access your ReelWall.',
+    [
+      {
+        text: 'Cancel',
+        style: 'cancel',
+      },
+      {
+        text: 'Log Out',
+        style: 'destructive', // 👈 gives it emphasis
+        onPress: async () => {
+          try {
+            await supabase.auth.signOut();
+            await AsyncStorage.clear();
+            router.replace('/login');
+          } catch (error) {
+            console.log('Logout error:', error);
+          }
+        },
+      },
+    ]
+  );
+};
+
 
   const getLocationLabel = () => {
     if (privacySettings.locationVisibility === 'exact') return 'Exact';
@@ -268,7 +295,7 @@ export default function Profile() {
             >
               <Ionicons name="chevron-back" size={18} color="#F5F7FA" />
               <Text style={styles.backButtonText}>Profile</Text>
-            </TouchableOpacity>
+            </TouchableOpacity>a
           </View>
 
           <Text style={styles.privacyEyebrow}>PRIVACY</Text>
@@ -516,6 +543,19 @@ export default function Profile() {
           <Text style={styles.infoText}>
             Build your identity here with a profile photo, name, catches, and curated collections.
           </Text>
+        
+        <View style={styles.infoCard}>
+
+
+  <TouchableOpacity
+    style={styles.logoutButton}
+    onPress={handleLogout}
+    activeOpacity={0.85}
+  >
+    <Text style={styles.logoutButtonText}>Log Out</Text>
+  </TouchableOpacity>
+</View>
+        
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -583,7 +623,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   editProfileButton: {
-    backgroundColor: '#163554',
+    backgroundColor: '#F2C94C',
     paddingVertical: 11,
     paddingHorizontal: 20,
     borderRadius: 14,
@@ -626,6 +666,19 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '800',
   },
+
+  logoutButton: {
+  marginTop: 10,
+  backgroundColor: '#F2C94C',
+  paddingVertical: 12,
+  borderRadius: 14,
+  alignItems: 'center',
+},
+logoutButtonText: {
+  color: '#102C47',
+  fontWeight: '700',
+  fontSize: 14,
+},
   statLabel: {
     color: '#A5B3C2',
     fontSize: 12,

@@ -1,23 +1,25 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Share } from 'react-native';
+
+import * as WebBrowser from 'expo-web-browser';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   FlatList,
   Image,
   KeyboardAvoidingView,
-  Linking,
+
   Modal,
   Platform,
   RefreshControl,
-  ScrollView, // ✅ added
-  Share,
+  ScrollView,
   StyleSheet,
   Switch,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
@@ -113,32 +115,43 @@ function mergeCatchesByIdOrImage(
 }
 
 function getCollectionUrl(collectionId: string) {
-  return `https://reelwall.app/collection/${collectionId}`;
+  return `https://www.reelwall.app/collections/${collectionId}`;
 }
+
 
 async function handleViewOnWeb(collection: CollectionItem) {
   if (!collection.is_public) {
-    Alert.alert('Private Collection', 'Make this collection public to view it on the web.');
+    Alert.alert('Private Collection', 'Make this collection public to view it.');
     return;
   }
 
-  Linking.openURL(getCollectionUrl(collection.id));
-}
+  const url = getCollectionUrl(collection.id);
 
+  try {
+    await WebBrowser.openBrowserAsync(url);
+  } catch (error) {
+    console.log('Open browser error:', error);
+    Alert.alert('Could not open collection', url);
+  }
+}
 async function handleShareCollection(collection: CollectionItem) {
   if (!collection.is_public) {
     Alert.alert('Private Collection', 'Make this collection public to share it.');
     return;
   }
 
+  const url = getCollectionUrl(collection.id);
+
   try {
     await Share.share({
-      message: `Check out my fishing collection on ReelWall 🎣\n\n${getCollectionUrl(collection.id)}`,
+      message: `Check out this collection on ReelWall\n\n${url}`,
     });
   } catch (e) {
     console.log('Share error:', e);
   }
 }
+
+
 
 async function getDeletedCatchIds() {
   try {
@@ -175,6 +188,13 @@ export default function CollectionsScreen() {
     useState(false);
   const [galleryCollection, setGalleryCollection] =
     useState<CollectionItem | null>(null);
+
+const [shareCollectionItem, setShareCollectionItem] =
+  useState<CollectionItem | null>(null);
+
+const collectionShareCardRef = useRef<View | null>(null);
+
+
 
   const [showFullscreenOverlay, setShowFullscreenOverlay] = useState(false);
   const [fullscreenImageUrl, setFullscreenImageUrl] = useState<string | null>(
@@ -629,7 +649,7 @@ export default function CollectionsScreen() {
       <TouchableOpacity
         style={styles.heroWrap}
         activeOpacity={0.92}
-        onPress={() => openCollectionPhotos(item)}
+        onPress={() => handleViewOnWeb(item)}
       >
         {coverImage ? (
           <Image source={{ uri: coverImage }} style={styles.heroImage} />
@@ -934,15 +954,7 @@ export default function CollectionsScreen() {
                   style={styles.searchInput}
                 />
 
-                {!!selectedCollectionFresh && (
-                  <TouchableOpacity
-                    style={styles.deleteCollectionButton}
-                    onPress={() => deleteCollection(selectedCollectionFresh.id)}
-                    activeOpacity={0.88}
-                  >
-                    <Text style={styles.deleteCollectionButtonText}>Delete Collection</Text>
-                  </TouchableOpacity>
-                )}
+                
               </View>
 
               <View style={styles.manageStatsRow}>
@@ -985,8 +997,21 @@ export default function CollectionsScreen() {
                   maxToRenderPerBatch={8}
                   windowSize={6}
                   removeClippedSubviews={Platform.OS === 'android'}
+                
+                
                 />
-              )}
+                )}
+               {selectedCollectionFresh && (
+  <TouchableOpacity
+    style={styles.deleteCollectionButtonBottom}
+    onPress={() => deleteCollection(selectedCollectionFresh.id)}
+    activeOpacity={0.88}
+  >
+    <Text style={styles.deleteCollectionButtonText}>
+      Delete Collection
+    </Text>
+  </TouchableOpacity>
+)}
             </View>
           </View>
         </KeyboardAvoidingView>
@@ -1074,7 +1099,52 @@ export default function CollectionsScreen() {
           </View>
         </View>
       </Modal>
+      <View style={styles.hiddenCollectionShareWrap} pointerEvents="none">
+  {shareCollectionItem && (
+    <View
+      ref={collectionShareCardRef}
+      collapsable={false} 
+      style={styles.collectionShareCard}
+      >
+    
+        <Image
+          source={{
+            uri:
+              shareCollectionItem.cover_image_url ||
+              catchesById.get(shareCollectionItem.catchIds[0])?.image_url ||
+              '',
+          }}
+          style={styles.collectionShareImage}
+        />
+
+        <View style={styles.collectionShareMeta}>
+          <Text style={styles.collectionShareEyebrow}>REELWALL COLLECTION</Text>
+
+          <Text style={styles.collectionShareTitle}>
+            {shareCollectionItem.title}
+          </Text>
+
+          {!!shareCollectionItem.description && (
+            <Text style={styles.collectionShareDescription} numberOfLines={3}>
+              {shareCollectionItem.description}
+            </Text>
+          )}
+
+          <Text style={styles.collectionShareStats}>
+            {shareCollectionItem.catchIds.length}{' '}
+            {shareCollectionItem.catchIds.length === 1 ? 'catch' : 'catches'} • Public Collection
+          </Text>
+
+          <Text style={styles.collectionShareBrand}>
+            A MOMENT WORTH REMEMBERING • REELWALL 🎣
+          </Text>
+        </View>
+      </View>
+  
+  )}
+</View>
     </SafeAreaView>
+    
   );
 }
 
@@ -1118,6 +1188,8 @@ secondaryButtonText: {
     fontWeight: '900',
     marginBottom: 8,
   },
+
+
 
   subtitle: {
     color: MUTED,
@@ -1543,15 +1615,15 @@ secondaryButtonText: {
     marginBottom: 10,
   },
 
-  deleteCollectionButton: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(232,108,108,0.14)',
-    borderWidth: 1,
-    borderColor: 'rgba(232,108,108,0.4)',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 14,
-  },
+  deleteCollectionButtonBottom: {
+  marginTop: 12,
+  backgroundColor: 'rgba(232,108,108,0.14)',
+  borderWidth: 1,
+  borderColor: 'rgba(232,108,108,0.4)',
+  paddingVertical: 14,
+  borderRadius: 16,
+  alignItems: 'center',
+},
 
   deleteCollectionButtonText: {
     color: DANGER,
@@ -1757,4 +1829,68 @@ secondaryButtonText: {
     fontWeight: '700',
     fontSize: 14,
   },
+  hiddenCollectionShareWrap: {
+  position: 'absolute',
+  left: -10000,
+  top: 0,
+  width: 390,
+},
+
+collectionShareCard: {
+  width: 390,
+  backgroundColor: '#102C47',
+  overflow: 'hidden',
+},
+
+collectionShareImage: {
+  width: '100%',
+  height: 300,
+  resizeMode: 'cover',
+  backgroundColor: '#081E33',
+},
+
+collectionShareMeta: {
+  backgroundColor: '#102C47',
+  paddingHorizontal: 20,
+  paddingTop: 18,
+  paddingBottom: 22,
+},
+
+collectionShareEyebrow: {
+  color: '#F2C94C',
+  fontSize: 11,
+  fontWeight: '900',
+  letterSpacing: 1.4,
+  marginBottom: 8,
+},
+
+collectionShareTitle: {
+  color: '#FFFFFF',
+  fontSize: 26,
+  fontWeight: '900',
+  marginBottom: 8,
+},
+
+collectionShareDescription: {
+  color: '#FFFFFF',
+  fontSize: 15,
+  fontWeight: '600',
+  lineHeight: 21,
+  marginBottom: 12,
+},
+
+collectionShareStats: {
+  color: '#B6C6D7',
+  fontSize: 13,
+  fontWeight: '700',
+  marginBottom: 14,
+},
+
+collectionShareBrand: {
+  color: '#F2C94C',
+  fontSize: 12,
+  fontWeight: '900',
+  letterSpacing: 1,
+},
+
 });

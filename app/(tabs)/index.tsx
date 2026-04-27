@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import * as Sharing from 'expo-sharing';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -12,7 +13,6 @@ import {
   RefreshControl,
   SafeAreaView,
   ScrollView,
-  Share,
   StyleSheet,
   Switch,
   Text,
@@ -20,6 +20,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import ViewShot from 'react-native-view-shot';
 import { supabase } from '../../lib/supabase';
 
 type LocationVisibility = 'exact' | 'approximate' | 'hidden';
@@ -62,6 +63,9 @@ export default function Home() {
     locationVisibility: 'hidden',
   });
 
+  const [shareItem, setShareItem] = useState<CatchItem | null>(null);
+  const shareCardRef = useRef<ViewShot | null>(null);
+
   const getDeletedCatchIds = async () => {
   try {
     const raw = await AsyncStorage.getItem(DELETED_CATCH_IDS_KEY);
@@ -71,7 +75,7 @@ export default function Home() {
   }
 };
 
-const DELETED_CATCH_IDS_KEY = 'reelwall_deleted_catch_ids';
+
 
 
 
@@ -279,26 +283,37 @@ const filterDeletedCatches = (items: CatchItem[], deletedIds: string[]) => {
   };
 
   const shareCatch = async (item: CatchItem) => {
-    try {
-      const location = getDisplayedLocation(item);
-      const date = getDisplayedDate(item);
+  try {
+    setShareItem(item);
 
-      const messageParts = [
-        item.note?.trim(),
-        date ? `Caught on ${date}` : '',
-        location ? `Location: ${location}` : '',
-        'Check out my catch on ReelWall 🎣',
-      ].filter(Boolean);
+    await new Promise((resolve) => setTimeout(resolve, 350));
 
-      await Share.share({
-        message: messageParts.join('\n'),
-        url: item.uri,
-      });
-    } catch (error) {
-      console.log('Share error:', error);
-      Alert.alert('Could not share this catch');
+    const imageUri = await (shareCardRef.current as any)?.capture?.();
+
+    if (!imageUri) {
+      Alert.alert('Could not prepare share image');
+      return;
     }
-  };
+
+    const canShare = await Sharing.isAvailableAsync();
+
+    if (!canShare) {
+      Alert.alert('Sharing is not available on this device');
+      return;
+    }
+
+    await Sharing.shareAsync(imageUri, {
+      mimeType: 'image/jpeg',
+      dialogTitle: 'Share your ReelWall catch',
+    });
+  } catch (error) {
+    console.log('Share error:', error);
+    Alert.alert('Could not share this catch');
+  } finally {
+    setShareItem(null);
+  }
+};
+
 
   const openCatch = (item: CatchItem) => {
     setSelectedCatch(item);
@@ -809,6 +824,41 @@ setTimeout(() => {
           )}
         </SafeAreaView>
       </Modal>
+      <View style={styles.hiddenShareWrap} pointerEvents="none">
+  {shareItem && (
+    <ViewShot
+      ref={shareCardRef}
+      options={{ format: 'jpg', quality: 0.95 }}
+    >
+      <View style={styles.shareCard}>
+  <Image source={{ uri: shareItem.uri }} style={styles.shareCardImage} />
+
+  <View style={styles.shareCardMeta}>
+    {getDisplayedDate(shareItem) ? (
+      <Text style={styles.shareCardDate}>{getDisplayedDate(shareItem)}</Text>
+    ) : null}
+
+{getDisplayedLocation(shareItem) ? (
+  <Text style={styles.shareCardLocation}>
+    {getDisplayedLocation(shareItem)}
+  </Text>
+) : null}
+
+<Image source={require('../../assets/logo.png')}
+style={styles.shareCardLogo}
+/>
+    <Text style={styles.shareCardNote}>
+      {shareItem.note || 'A catch worth remembering.'}
+    </Text>
+
+    <Text style={styles.shareCardBrand}>
+      REELWALL • A CATCH WORTH REMEMBERING 
+    </Text>
+  </View>
+</View>
+    </ViewShot>
+  )}
+</View>
     </SafeAreaView>
   );
 }
@@ -1357,4 +1407,73 @@ const styles = StyleSheet.create({
   textAlign: 'center',
   marginTop: 8,
 },
-});
+hiddenShareWrap: {
+  position: 'absolute',
+  left: -10000,
+  top: 0,
+  width: 390,
+},
+
+shareCard: {
+  width: 390,
+  overflow: 'hidden',
+  backgroundColor: '#102C47',
+},
+
+shareCardImage: {
+  width: '100%',
+  height: 300,
+  resizeMode: 'cover'
+},
+
+shareCardOverlay: {
+  position: 'absolute',
+  left: 0,
+  right: 0,
+  bottom: 0,
+  height: 260,
+},
+
+shareCardLogo: {
+  position: 'absolute',
+  opacity: 0.85,
+  right: 16,
+  bottom: 16,
+  height: 40,
+},
+
+shareCardMeta: {
+  backgroundColor: '#102C47',
+  paddingHorizontal:20,
+  paddingTop: 16,
+  paddingBottom: 6,
+},
+
+shareCardDate: {
+  color: '#F2C94C',
+  fontSize: 18,
+  fontWeight: '800',
+  marginBottom: 8,
+},
+
+shareCardLocation: {
+  color: '#A5B3C2',
+  fontSize: 14,
+  fontWeight: '600',
+  marginBottom: 10,
+},
+
+shareCardNote: {
+  color: '#FFFFFF',
+  fontSize: 14,
+  fontWeight: '600',
+  lineHeight: 20,
+  marginBottom: 12,
+},
+
+shareCardBrand: {
+  color: '#F2C94C',
+  fontSize: 10,
+  fontWeight: '800',
+  letterSpacing: 1,
+  },});

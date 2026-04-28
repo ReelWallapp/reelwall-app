@@ -5,7 +5,6 @@ import { decode } from 'base64-arraybuffer';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Haptics from 'expo-haptics';
-import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
@@ -53,18 +52,19 @@ export default function CaptureScreen() {
   const [showGrid, setShowGrid] = useState(true);
   const [qualityMode, setQualityMode] = useState<CaptureQuality>('high');
   const [zoom, setZoom] = useState(0);
+  const [showZoomPanel, setShowZoomPanel] = useState(false);
+  const [showLandscapeTip, setShowLandscapeTip] = useState(false);
   const [timer, setTimer] = useState<CaptureTimer>(0);
   const [countdown, setCountdown] = useState<number | null>(null);
   const cameraRef = useRef<any>(null);
 
   const qualityValue = useMemo(() => {
-    return qualityMode === 'high' ? 0.92 : 0.72;
+    return qualityMode === 'high' ? 1 : 0.82;
   }, [qualityMode]);
 
   const sortCatchesNewestFirst = (items: CatchItem[]) => {
     return [...items].sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
   };
 
@@ -93,13 +93,9 @@ export default function CaptureScreen() {
 
       return {
         weatherTemp:
-          typeof data?.main?.temp === 'number'
-            ? Math.round(data.main.temp)
-            : undefined,
+          typeof data?.main?.temp === 'number' ? Math.round(data.main.temp) : undefined,
         weatherDescription:
-          typeof data?.weather?.[0]?.main === 'string'
-            ? data.weather[0].main
-            : undefined,
+          typeof data?.weather?.[0]?.main === 'string' ? data.weather[0].main : undefined,
       };
     } catch (error) {
       console.log('Weather error:', error);
@@ -108,59 +104,12 @@ export default function CaptureScreen() {
   };
 
   const normalizeImageForUpload = async (uri: string) => {
-    const resized = await ImageManipulator.manipulateAsync(
-      uri,
-      [{ resize: { width: 1200 } }],
-      {
-        compress: 0.9,
-        format: ImageManipulator.SaveFormat.JPEG,
-      }
-    );
-
-    const targetAspect = 4 / 3;
-    const currentAspect = resized.width / resized.height;
-
-    if (Math.abs(currentAspect - targetAspect) < 0.01) {
-      return resized.uri;
-    }
-
-    let cropWidth = resized.width;
-    let cropHeight = resized.height;
-    let originX = 0;
-    let originY = 0;
-
-    if (currentAspect > targetAspect) {
-      cropWidth = Math.round(resized.height * targetAspect);
-      originX = Math.max(0, Math.floor((resized.width - cropWidth) / 2));
-    } else {
-      cropHeight = Math.round(resized.width / targetAspect);
-      originY = Math.max(0, Math.floor((resized.height - cropHeight) / 2));
-    }
-
-    const cropped = await ImageManipulator.manipulateAsync(
-      resized.uri,
-      [
-        {
-          crop: {
-            originX,
-            originY,
-            width: cropWidth,
-            height: cropHeight,
-          },
-        },
-      ],
-      {
-        compress: 0.9,
-        format: ImageManipulator.SaveFormat.JPEG,
-      }
-    );
-
-    return cropped.uri;
+    return uri;
   };
 
   const uploadImageToSupabase = async (uri: string) => {
     const fileExt = 'jpg';
-    const fileName = `${Date.now()}.${fileExt}`;
+    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
     const filePath = `public/${fileName}`;
 
     const base64 = await FileSystem.readAsStringAsync(uri, {
@@ -174,18 +123,13 @@ export default function CaptureScreen() {
         upsert: false,
       });
 
-    if (uploadError) {
-      throw uploadError;
-    }
+    if (uploadError) throw uploadError;
 
     const { data } = supabase.storage.from('catches').getPublicUrl(filePath);
     return data.publicUrl;
   };
 
-  const saveCatch = async (
-    localUri: string,
-    source: 'camera' | 'upload'
-  ) => {
+  const saveCatch = async (localUri: string, source: 'camera' | 'upload') => {
     const normalizedUri = await normalizeImageForUpload(localUri);
     const publicImageUrl = await uploadImageToSupabase(normalizedUri);
     const createdAt = new Date().toISOString();
@@ -195,20 +139,17 @@ export default function CaptureScreen() {
     let weatherTemp: number | undefined;
     let weatherDescription: string | undefined;
 
-    // Only camera captures should collect location/weather.
     if (source === 'camera') {
       try {
-        const locationPermission =
-          await Location.requestForegroundPermissionsAsync();
+        const locationPermission = await Location.requestForegroundPermissionsAsync();
 
         if (locationPermission.status === 'granted') {
-          const loc = await Location.getCurrentPositionAsync({});
+          const loc = await Location.getCurrentPositionAsync({
+  accuracy: Location.Accuracy.Balanced,
+});
           const { latitude, longitude } = loc.coords;
 
-          const geocode = await Location.reverseGeocodeAsync({
-            latitude,
-            longitude,
-          });
+          const geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
 
           if (geocode.length > 0) {
             const place = geocode[0];
@@ -224,15 +165,15 @@ export default function CaptureScreen() {
         console.log('Location error:', locationError);
       }
     }
-const {
-  data: { user },
-  error: userError,
-} = await supabase.auth.getUser();
 
-if (userError || !user) {
-  throw new Error('User not logged in');
-}
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
+    if (userError || !user) {
+      throw new Error('User not logged in');
+    }
 
     const { data, error } = await supabase
       .from('catches')
@@ -244,8 +185,7 @@ if (userError || !user) {
           place_name: source === 'upload' ? null : placeName || null,
           region_name: source === 'upload' ? null : regionName || null,
           weather_temp: source === 'upload' ? null : weatherTemp ?? null,
-          weather_description:
-            source === 'upload' ? null : weatherDescription || null,
+          weather_description: source === 'upload' ? null : weatherDescription || null,
           is_personal_best: false,
           created_at: createdAt,
           source,
@@ -254,9 +194,7 @@ if (userError || !user) {
       .select('*')
       .single();
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
     const saved = await AsyncStorage.getItem(STORAGE_KEY);
     const existing: CatchItem[] = saved ? JSON.parse(saved) : [];
@@ -336,6 +274,24 @@ if (userError || !user) {
     setZoom(value);
   };
 
+  const toggleZoomPanel = async () => {
+    if (saving) return;
+
+    await Haptics.selectionAsync();
+    setShowZoomPanel((current) => !current);
+  };
+
+  const showLandscapeHelper = async () => {
+    if (saving) return;
+
+    await Haptics.selectionAsync();
+    setShowLandscapeTip(true);
+
+    setTimeout(() => {
+      setShowLandscapeTip(false);
+    }, 3000);
+  };
+
   const runCountdown = async () => {
     if (timer === 0) return;
 
@@ -387,8 +343,7 @@ if (userError || !user) {
     try {
       if (saving) return;
 
-      const permissionResult =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (!permissionResult.granted) {
         Alert.alert(
@@ -396,10 +351,7 @@ if (userError || !user) {
           'Please allow ReelWall to access your photos so you can upload catches.',
           [
             { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Open Settings',
-              onPress: () => Linking.openSettings(),
-            },
+            { text: 'Open Settings', onPress: () => Linking.openSettings() },
           ]
         );
         return;
@@ -438,10 +390,7 @@ if (userError || !user) {
           ReelWall needs your camera to capture the moment.
         </Text>
 
-        <TouchableOpacity
-          onPress={requestPermission}
-          style={styles.primaryButton}
-        >
+        <TouchableOpacity onPress={requestPermission} style={styles.primaryButton}>
           <Text style={styles.primaryButtonText}>Allow Camera</Text>
         </TouchableOpacity>
 
@@ -455,13 +404,13 @@ if (userError || !user) {
   return (
     <View style={styles.container}>
       <CameraView
-  ref={cameraRef}
-  style={styles.camera}
-  facing={facing}
-  flash={flashMode}
-  zoom={zoom}
-  autofocus="on"
-/>
+        ref={cameraRef}
+        style={styles.camera}
+        facing={facing}
+        flash={flashMode}
+        zoom={zoom}
+        autofocus="on"
+      />
 
       {showGrid && (
         <View pointerEvents="none" style={styles.gridOverlay}>
@@ -481,14 +430,23 @@ if (userError || !user) {
           <Ionicons name="chevron-back" size={22} color="#F5F7FA" />
         </TouchableOpacity>
 
-        <Text style={styles.topText}>Capture Your Catch</Text>
+        <View style={styles.titlePill}>
+          <Text style={styles.topText}>Capture Your Catch</Text>
+          <Text style={styles.topSubText}>Original photo saved</Text>
+        </View>
 
-        <View style={styles.topRightSpacer} />
+        <TouchableOpacity
+          style={styles.topIconButton}
+          onPress={showLandscapeHelper}
+          disabled={saving || flashSuccess || countdown !== null}
+        >
+          <Ionicons name="phone-landscape-outline" size={22} color="#F2C94C" />
+        </TouchableOpacity>
       </View>
 
       <View style={styles.topControls}>
         <TouchableOpacity
-          style={styles.topControlPill}
+          style={styles.iconControl}
           onPress={cycleFlash}
           disabled={saving || flashSuccess || countdown !== null}
         >
@@ -500,155 +458,149 @@ if (userError || !user) {
                   ? 'flash'
                   : 'flash-outline'
             }
-            size={16}
+            size={18}
             color="#F2C94C"
           />
-          <Text style={styles.topControlText}>
-            {flashMode === 'off'
-              ? 'Flash Off'
-              : flashMode === 'on'
-                ? 'Flash On'
-                : 'Flash Auto'}
-          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.topControlPill}
+          style={styles.iconControl}
           onPress={toggleQuality}
           disabled={saving || flashSuccess || countdown !== null}
         >
-          <Ionicons name="sparkles-outline" size={16} color="#F2C94C" />
-          <Text style={styles.topControlText}>
-            {qualityMode === 'high' ? 'HD' : 'Fast'}
-          </Text>
+          <Ionicons name="sparkles-outline" size={18} color="#F2C94C" />
+          <Text style={styles.iconControlText}>{qualityMode === 'high' ? 'HD' : 'Fast'}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.topControlPill}
+          style={styles.iconControl}
           onPress={toggleGrid}
           disabled={saving || flashSuccess || countdown !== null}
         >
           <Ionicons
             name={showGrid ? 'grid-outline' : 'square-outline'}
-            size={16}
+            size={18}
             color="#F2C94C"
           />
-          <Text style={styles.topControlText}>
-            {showGrid ? 'Grid On' : 'Grid Off'}
-          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.topControlPill}
+          style={styles.iconControl}
           onPress={cycleTimer}
           disabled={saving || flashSuccess || countdown !== null}
         >
-          <Ionicons name="timer-outline" size={16} color="#F2C94C" />
-          <Text style={styles.topControlText}>
-            {timer === 0 ? 'Timer Off' : `${timer}s Timer`}
-          </Text>
+          <Ionicons name="timer-outline" size={18} color="#F2C94C" />
+          <Text style={styles.iconControlText}>{timer === 0 ? 'Off' : `${timer}s`}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.iconControl, showZoomPanel && styles.iconControlActive]}
+          onPress={toggleZoomPanel}
+          disabled={saving || flashSuccess || countdown !== null}
+        >
+          <Ionicons name="search-outline" size={18} color="#F2C94C" />
+          <Text style={styles.iconControlText}>{(1 + zoom * 3).toFixed(1)}x</Text>
         </TouchableOpacity>
       </View>
 
-      <View style={styles.zoomPanel}>
-        <View style={styles.zoomHeaderRow}>
-          <View style={styles.zoomTitleWrap}>
-            <Ionicons name="search-outline" size={16} color="#F2C94C" />
-            <Text style={styles.zoomTitle}>Zoom</Text>
+      {showZoomPanel && (
+        <View style={styles.zoomPanel}>
+          <View style={styles.zoomHeaderRow}>
+            <View style={styles.zoomTitleWrap}>
+              <Ionicons name="search-outline" size={16} color="#F2C94C" />
+              <Text style={styles.zoomTitle}>Zoom</Text>
+            </View>
+
+            <TouchableOpacity
+              onPress={resetZoom}
+              disabled={saving || flashSuccess || countdown !== null}
+              style={styles.zoomResetButton}
+            >
+              <Text style={styles.zoomResetText}>Reset</Text>
+            </TouchableOpacity>
           </View>
 
-          <TouchableOpacity
-            onPress={resetZoom}
-            disabled={saving || flashSuccess || countdown !== null}
-            style={styles.zoomResetButton}
-          >
-            <Text style={styles.zoomResetText}>Reset</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.quickZoomRow}>
-          <TouchableOpacity
-            style={[
-              styles.quickZoomButton,
-              zoom < 0.15 && styles.quickZoomButtonActive,
-            ]}
-            onPress={() => setQuickZoom(0)}
-            disabled={saving || flashSuccess || countdown !== null}
-          >
-            <Text
-              style={[
-                styles.quickZoomText,
-                zoom < 0.15 && styles.quickZoomTextActive,
-              ]}
+          <View style={styles.quickZoomRow}>
+            <TouchableOpacity
+              style={[styles.quickZoomButton, zoom < 0.15 && styles.quickZoomButtonActive]}
+              onPress={() => setQuickZoom(0)}
+              disabled={saving || flashSuccess || countdown !== null}
             >
-              1x
-            </Text>
-          </TouchableOpacity>
+              <Text style={[styles.quickZoomText, zoom < 0.15 && styles.quickZoomTextActive]}>
+                1x
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.quickZoomButton,
-              zoom >= 0.15 && zoom < 0.45 && styles.quickZoomButtonActive,
-            ]}
-            onPress={() => setQuickZoom(0.3)}
-            disabled={saving || flashSuccess || countdown !== null}
-          >
-            <Text
+            <TouchableOpacity
               style={[
-                styles.quickZoomText,
-                zoom >= 0.15 && zoom < 0.45 && styles.quickZoomTextActive,
+                styles.quickZoomButton,
+                zoom >= 0.15 && zoom < 0.45 && styles.quickZoomButtonActive,
               ]}
+              onPress={() => setQuickZoom(0.3)}
+              disabled={saving || flashSuccess || countdown !== null}
             >
-              2x
-            </Text>
-          </TouchableOpacity>
+              <Text
+                style={[
+                  styles.quickZoomText,
+                  zoom >= 0.15 && zoom < 0.45 && styles.quickZoomTextActive,
+                ]}
+              >
+                2x
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.quickZoomButton,
-              zoom >= 0.45 && styles.quickZoomButtonActive,
-            ]}
-            onPress={() => setQuickZoom(0.6)}
-            disabled={saving || flashSuccess || countdown !== null}
-          >
-            <Text
-              style={[
-                styles.quickZoomText,
-                zoom >= 0.45 && styles.quickZoomTextActive,
-              ]}
+            <TouchableOpacity
+              style={[styles.quickZoomButton, zoom >= 0.45 && styles.quickZoomButtonActive]}
+              onPress={() => setQuickZoom(0.6)}
+              disabled={saving || flashSuccess || countdown !== null}
             >
-              3x
-            </Text>
-          </TouchableOpacity>
+              <Text style={[styles.quickZoomText, zoom >= 0.45 && styles.quickZoomTextActive]}>
+                3x
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.zoomRow}>
+            <Text style={styles.zoomLabel}>1x</Text>
+
+            <Slider
+              style={styles.slider}
+              minimumValue={0}
+              maximumValue={0.9}
+              value={zoom}
+              onValueChange={setZoom}
+              minimumTrackTintColor="#F2C94C"
+              maximumTrackTintColor="rgba(255,255,255,0.22)"
+              thumbTintColor="#F2C94C"
+              disabled={saving || flashSuccess || countdown !== null}
+            />
+
+            <Text style={styles.zoomLabel}>{(1 + zoom * 3).toFixed(1)}x</Text>
+          </View>
         </View>
+      )}
 
-        <View style={styles.zoomRow}>
-          <Text style={styles.zoomLabel}>1x</Text>
-
-          <Slider
-            style={styles.slider}
-            minimumValue={0}
-            maximumValue={0.9}
-            value={zoom}
-            onValueChange={setZoom}
-            minimumTrackTintColor="#F2C94C"
-            maximumTrackTintColor="rgba(255,255,255,0.22)"
-            thumbTintColor="#F2C94C"
-            disabled={saving || flashSuccess || countdown !== null}
-          />
-
-          <Text style={styles.zoomLabel}>{(1 + zoom * 3).toFixed(1)}x</Text>
+      {showLandscapeTip && (
+        <View style={styles.landscapeTip}>
+          <Ionicons name="phone-landscape-outline" size={18} color="#F2C94C" />
+          <Text style={styles.landscapeTipText}>
+            For wider photos, rotate your phone sideways before taking the shot.
+          </Text>
         </View>
-      </View>
+      )}
 
       <View style={styles.bottomPanel}>
         <TouchableOpacity
-          style={styles.sideButton}
+          style={styles.uploadButton}
           onPress={pickImage}
           disabled={saving || flashSuccess || countdown !== null}
+          activeOpacity={0.9}
         >
-          <Ionicons name="images-outline" size={22} color="#F5F7FA" />
-          <Text style={styles.sideButtonText}>Upload</Text>
+          <View style={styles.uploadIconCircle}>
+            <Ionicons name="images-outline" size={24} color="#0A2540" />
+          </View>
+          <Text style={styles.uploadText}>Upload</Text>
+          <Text style={styles.uploadSubText}>Library</Text>
         </TouchableOpacity>
 
         <View style={styles.captureWrap}>
@@ -681,7 +633,7 @@ if (userError || !user) {
           onPress={flipCamera}
           disabled={saving || flashSuccess || countdown !== null}
         >
-          <Ionicons name="camera-reverse-outline" size={22} color="#F5F7FA" />
+          <Ionicons name="camera-reverse-outline" size={24} color="#F5F7FA" />
           <Text style={styles.sideButtonText}>Flip</Text>
         </TouchableOpacity>
       </View>
@@ -778,61 +730,74 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  topText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '800',
-    backgroundColor: 'rgba(0,0,0,0.28)',
+  titlePill: {
+    backgroundColor: 'rgba(0,0,0,0.32)',
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 999,
+    alignItems: 'center',
   },
-  topRightSpacer: {
-    width: 44,
+  topText: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  topSubText: {
+    marginTop: 2,
+    color: '#F2C94C',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.4,
   },
   topControls: {
     position: 'absolute',
-    top: 116,
-    left: 10,
-    right: 10,
+    top: 124,
+    left: 14,
+    right: 14,
     flexDirection: 'row',
-    justifyContent: 'space-evenly',
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 6,
+    gap: 9,
   },
-  topControlPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
+  iconControl: {
+    minWidth: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: 'rgba(8,30,51,0.78)',
     borderWidth: 1,
     borderColor: 'rgba(242,201,76,0.18)',
-    paddingVertical: 7,
-    paddingHorizontal: 9,
-    borderRadius: 999,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    gap: 4,
   },
-  topControlText: {
+  iconControlActive: {
+    backgroundColor: 'rgba(242,201,76,0.18)',
+    borderColor: 'rgba(242,201,76,0.55)',
+  },
+  iconControlText: {
     color: '#F5F7FA',
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 10,
+    fontWeight: '800',
   },
   zoomPanel: {
     position: 'absolute',
     left: 18,
     right: 18,
-    bottom: 150,
-    backgroundColor: 'rgba(8,30,51,0.82)',
+    bottom: 160,
+    backgroundColor: 'rgba(8,30,51,0.9)',
     borderWidth: 1,
-    borderColor: 'rgba(242,201,76,0.18)',
-    borderRadius: 16,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    borderColor: 'rgba(242,201,76,0.28)',
+    borderRadius: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
   },
   zoomHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    marginBottom: 8,
   },
   zoomTitleWrap: {
     flexDirection: 'row',
@@ -845,8 +810,8 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   zoomResetButton: {
-    paddingVertical: 4,
-    paddingHorizontal: 10,
+    paddingVertical: 5,
+    paddingHorizontal: 12,
     borderRadius: 999,
     backgroundColor: 'rgba(242,201,76,0.14)',
   },
@@ -859,7 +824,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 8,
-    marginBottom: 6,
+    marginBottom: 8,
   },
   quickZoomButton: {
     minWidth: 56,
@@ -897,7 +862,29 @@ const styles = StyleSheet.create({
   },
   slider: {
     flex: 1,
-    height: 28,
+    height: 30,
+  },
+  landscapeTip: {
+    position: 'absolute',
+    top: 178,
+    left: 18,
+    right: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(8,30,51,0.9)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(242,201,76,0.28)',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  landscapeTipText: {
+    flex: 1,
+    color: '#F5F7FA',
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 17,
   },
   gridOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -936,37 +923,73 @@ const styles = StyleSheet.create({
   },
   bottomPanel: {
     position: 'absolute',
-    bottom: 40,
+    bottom: 36,
     left: 18,
     right: 18,
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     justifyContent: 'space-between',
   },
+  uploadButton: {
+    width: 100,
+    height: 80,
+    borderRadius: 22,
+    backgroundColor: '#F2C94C',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.28,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 5,
+  },
+  uploadIconCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(255,255,255,0.42)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 3,
+  },
+  uploadText: {
+    color: '#0A2540',
+    fontWeight: '900',
+    fontSize: 13,
+  },
+  uploadSubText: {
+    color: '#0A2540',
+    fontWeight: '700',
+    fontSize: 10,
+    opacity: 0.8,
+    marginTop: 1,
+  },
   sideButton: {
-    width: 82,
-    paddingVertical: 12,
-    borderRadius: 18,
-    backgroundColor: 'rgba(8,30,51,0.82)',
+    width: 100,
+    height: 80,
+    borderRadius: 22,
+    backgroundColor: 'rgba(8,30,51,0.84)',
     borderWidth: 1,
     borderColor: '#163554',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 4,
   },
   sideButtonText: {
     color: '#F5F7FA',
-    fontWeight: '700',
-    fontSize: 13,
+    fontWeight: '800',
+    fontSize: 12,
   },
   captureWrap: {
     alignItems: 'center',
     justifyContent: 'center',
   },
   captureOuter: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
+    width: 92,
+    height: 92,
+    borderRadius: 46,
     borderWidth: 4,
     borderColor: '#FFFFFF',
     justifyContent: 'center',
@@ -977,16 +1000,16 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   captureInner: {
-    width: 66,
-    height: 66,
-    borderRadius: 33,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     backgroundColor: '#F2C94C',
   },
   captureHint: {
     marginTop: 8,
     color: '#F5F7FA',
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   countdownOverlay: {
     ...StyleSheet.absoluteFillObject,

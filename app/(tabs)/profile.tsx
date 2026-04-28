@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
+
 import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
@@ -15,6 +16,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ensureProfileExistsAndSyncLocal } from '../../lib/profile-sync';
 import { supabase } from '../../lib/supabase';
+
+
 
 type CatchItem = {
   id: string;
@@ -200,12 +203,12 @@ export default function Profile() {
     await loadStats();
     await loadPrivacy();
 
-    // Load local first so UI feels immediate
+  
     await loadName();
     await loadPhoto();
     await loadProfileDetails();
 
-    // Then refresh from Supabase
+    
     await loadProfileFromSupabase();
   };
 
@@ -219,36 +222,39 @@ export default function Profile() {
     }, [])
   );
 
-  const handleDeleteAccount = async () => {
-    Alert.alert(
-      'Delete Account',
-      'This will permanently delete your account and all data. This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const {
-                data: { user },
-              } = await supabase.auth.getUser();
+const handleDeleteAccount = () => {
+  Alert.prompt(
+    'Delete Account',
+    'Type DELETE to permanently remove your account.',
+    [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Confirm',
+        style: 'destructive',
+        onPress: async () => {
+          
 
-              if (!user) return;
+          try {
+            const { error } = await supabase.functions.invoke('delete-account');
 
-              // Temporary version: signs out and clears local data.
-              // Real backend deletion should be done with a secure Supabase Edge Function.
-              await supabase.auth.signOut();
-              await AsyncStorage.clear();
-              router.replace('/login');
-            } catch (error) {
-              console.log('Delete account error:', error);
+            if (error) {
+              Alert.alert('Error', 'Could not delete account.');
+              return;
             }
-          },
+
+            await AsyncStorage.clear();
+            await supabase.auth.signOut();
+            router.replace('/login');
+          } catch (err) {
+            console.log(err);
+            Alert.alert('Error', 'Something went wrong.');
+          }
         },
-      ]
-    );
-  };
+      },
+    ],
+    'plain-text'
+  );
+};
   
  const handleLogout = () => {
   Alert.alert(
@@ -295,7 +301,7 @@ export default function Profile() {
             >
               <Ionicons name="chevron-back" size={18} color="#F5F7FA" />
               <Text style={styles.backButtonText}>Profile</Text>
-            </TouchableOpacity>a
+            </TouchableOpacity>
           </View>
 
           <Text style={styles.privacyEyebrow}>PRIVACY</Text>
@@ -557,6 +563,18 @@ export default function Profile() {
 </View>
         
         </View>
+
+        <View style={styles.infoCard}>
+  <TouchableOpacity
+    style={styles.deleteAccountButton}
+    onPress={handleDeleteAccount}
+    activeOpacity={0.85}
+  >
+    <Text style={styles.deleteAccountButtonText}>
+      Delete Account
+    </Text>
+  </TouchableOpacity>
+</View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -634,14 +652,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   deleteAccountButton: {
-    marginTop: 10,
-    backgroundColor: '#2A0F0F',
-    paddingVertical: 11,
-    paddingHorizontal: 20,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255,107,107,0.35)',
-  },
+  marginTop: 10,
+  backgroundColor: '#2A0F0F',
+  paddingVertical: 11,
+  paddingHorizontal: 20,
+  borderRadius: 14,
+  borderWidth: 1,
+  borderColor: 'rgba(255,107,107,0.35)',
+  alignItems: 'center',      // ✅ THIS centers horizontally
+  justifyContent: 'center',  // ✅ THIS centers vertically (good practice)
+},
   deleteAccountButtonText: {
     color: '#FF6B6B',
     fontWeight: '700',

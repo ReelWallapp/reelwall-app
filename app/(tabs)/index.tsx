@@ -52,6 +52,7 @@ const DELETED_CATCH_IDS_KEY = 'reelwall_deleted_catch_ids';
 
 export default function Home() {
   const [catches, setCatches] = useState<CatchItem[]>([]);
+  const [imageRatios, setImageRatios] = useState<Record<string, number>>({});
   const [selectedCatch, setSelectedCatch] = useState<CatchItem | null>(null);
   const [noteDraft, setNoteDraft] = useState('');
   const [locationDraft, setLocationDraft] = useState('');
@@ -67,28 +68,36 @@ export default function Home() {
   const shareCardRef = useRef<ViewShot | null>(null);
 
   const getDeletedCatchIds = async () => {
-  try {
-    const raw = await AsyncStorage.getItem(DELETED_CATCH_IDS_KEY);
-    return raw ? (JSON.parse(raw) as string[]) : [];
-  } catch {
-    return [];
-  }
+    try {
+      const raw = await AsyncStorage.getItem(DELETED_CATCH_IDS_KEY);
+      return raw ? (JSON.parse(raw) as string[]) : [];
+    } catch {
+      return [];
+    }
+  };
+
+const getImageRatio = (item: CatchItem) => {
+  if (imageRatios[item.id]) return imageRatios[item.id];
+
+  Image.getSize(item.uri, (width, height) => {
+    setImageRatios((prev) => ({
+      ...prev,
+      [item.id]: width / height,
+    }));
+  });
+
+  return 1;
 };
 
+  const saveDeletedCatchIds = async (ids: string[]) => {
+    await AsyncStorage.setItem(DELETED_CATCH_IDS_KEY, JSON.stringify(ids));
+  };
 
-
-
-
-
-const saveDeletedCatchIds = async (ids: string[]) => {
-  await AsyncStorage.setItem(DELETED_CATCH_IDS_KEY, JSON.stringify(ids));
-};
-
-const filterDeletedCatches = (items: CatchItem[], deletedIds: string[]) => {
-  if (!deletedIds.length) return items;
-  const deletedSet = new Set(deletedIds);
-  return items.filter((item) => !deletedSet.has(String(item.id)));
-};
+  const filterDeletedCatches = (items: CatchItem[], deletedIds: string[]) => {
+    if (!deletedIds.length) return items;
+    const deletedSet = new Set(deletedIds);
+    return items.filter((item) => !deletedSet.has(String(item.id)));
+  };
 
   const sortCatchesNewestFirst = (items: CatchItem[]) => {
     return [...items].sort(
@@ -126,39 +135,39 @@ const filterDeletedCatches = (items: CatchItem[], deletedIds: string[]) => {
   };
 
   const loadCatches = async () => {
-  try {
-    const userId = await getCurrentUserId();
-    const deletedIds = await getDeletedCatchIds();
-
-    const { data, error } = await supabase
-      .from('catches')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-
-    const mapped: CatchItem[] = (data || []).map(mapRowToCatch);
-    const filtered = filterDeletedCatches(mapped, deletedIds);
-    const sorted = sortCatchesNewestFirst(filtered);
-
-    setCatches(sorted);
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(sorted));
-  } catch (error) {
-    console.log('Load catches error:', error);
-
     try {
+      const userId = await getCurrentUserId();
       const deletedIds = await getDeletedCatchIds();
-      const saved = await AsyncStorage.getItem(STORAGE_KEY);
-      const parsed: CatchItem[] = saved ? JSON.parse(saved) : [];
-      const filtered = filterDeletedCatches(parsed, deletedIds);
-      setCatches(sortCatchesNewestFirst(filtered));
-    } catch (storageError) {
-      console.log('Fallback storage load error:', storageError);
-      setCatches([]);
+
+      const { data, error } = await supabase
+        .from('catches')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const mapped: CatchItem[] = (data || []).map(mapRowToCatch);
+      const filtered = filterDeletedCatches(mapped, deletedIds);
+      const sorted = sortCatchesNewestFirst(filtered);
+
+      setCatches(sorted);
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(sorted));
+    } catch (error) {
+      console.log('Load catches error:', error);
+
+      try {
+        const deletedIds = await getDeletedCatchIds();
+        const saved = await AsyncStorage.getItem(STORAGE_KEY);
+        const parsed: CatchItem[] = saved ? JSON.parse(saved) : [];
+        const filtered = filterDeletedCatches(parsed, deletedIds);
+        setCatches(sortCatchesNewestFirst(filtered));
+      } catch (storageError) {
+        console.log('Fallback storage load error:', storageError);
+        setCatches([]);
+      }
     }
-  }
-};
+  };
 
   const loadSettings = async () => {
     try {
@@ -231,6 +240,8 @@ const filterDeletedCatches = (items: CatchItem[], deletedIds: string[]) => {
     return parts.length > 1 ? parts[parts.length - 1] : normalizedPlace;
   };
 
+  
+
   const getDisplayedLocation = (item: CatchItem) => {
     if (privacySettings.locationVisibility === 'hidden') {
       return '';
@@ -283,37 +294,36 @@ const filterDeletedCatches = (items: CatchItem[], deletedIds: string[]) => {
   };
 
   const shareCatch = async (item: CatchItem) => {
-  try {
-    setShareItem(item);
+    try {
+      setShareItem(item);
 
-    await new Promise((resolve) => setTimeout(resolve, 350));
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
-    const imageUri = await (shareCardRef.current as any)?.capture?.();
+      const imageUri = await (shareCardRef.current as any)?.capture?.();
 
-    if (!imageUri) {
-      Alert.alert('Could not prepare share image');
-      return;
+      if (!imageUri) {
+        Alert.alert('Could not prepare share image');
+        return;
+      }
+
+      const canShare = await Sharing.isAvailableAsync();
+
+      if (!canShare) {
+        Alert.alert('Sharing is not available on this device');
+        return;
+      }
+
+      await Sharing.shareAsync(imageUri, {
+        mimeType: 'image/jpeg',
+        dialogTitle: 'Share your ReelWall catch',
+      });
+    } catch (error) {
+      console.log('Share error:', error);
+      Alert.alert('Could not share this catch');
+    } finally {
+      setShareItem(null);
     }
-
-    const canShare = await Sharing.isAvailableAsync();
-
-    if (!canShare) {
-      Alert.alert('Sharing is not available on this device');
-      return;
-    }
-
-    await Sharing.shareAsync(imageUri, {
-      mimeType: 'image/jpeg',
-      dialogTitle: 'Share your ReelWall catch',
-    });
-  } catch (error) {
-    console.log('Share error:', error);
-    Alert.alert('Could not share this catch');
-  } finally {
-    setShareItem(null);
-  }
-};
-
+  };
 
   const openCatch = (item: CatchItem) => {
     setSelectedCatch(item);
@@ -351,24 +361,19 @@ const filterDeletedCatches = (items: CatchItem[], deletedIds: string[]) => {
         catches.map((item) => (item.id === selectedCatch.id ? updatedCatch : item))
       );
 
-   setCatches(updated);
-setSelectedCatch(updatedCatch);
-await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      setCatches(updated);
+      setSelectedCatch(updatedCatch);
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
 
-Keyboard.dismiss();
-
-setTimeout(() => {
-  setSaveSuccess(true);
-
-  setTimeout(() => {
-    setSaveSuccess(false);
-  }, 3000);
-}, 100);
-
-setTimeout(() => {
-  setSaveSuccess(false);
-}, 2000);
       Keyboard.dismiss();
+
+      setTimeout(() => {
+        setSaveSuccess(true);
+
+        setTimeout(() => {
+          setSaveSuccess(false);
+        }, 3000);
+      }, 100);
     } catch (error) {
       console.log('Save all error:', error);
       Alert.alert('Could not save changes');
@@ -407,52 +412,53 @@ setTimeout(() => {
     }
   };
 
- const deleteCatch = () => {
-  if (!selectedCatch) return;
+  const deleteCatch = () => {
+    if (!selectedCatch) return;
 
-  Alert.alert(
-    'Delete catch from wall?',
-    'This will remove this catch from your wall.',
-    [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            const userId = await getCurrentUserId();
-            const catchId = String(selectedCatch.id);
+    Alert.alert(
+      'Delete catch from wall?',
+      'This will remove this catch from your wall.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const userId = await getCurrentUserId();
+              const catchId = String(selectedCatch.id);
 
-            const deletedIds = await getDeletedCatchIds();
-            const nextDeletedIds = Array.from(new Set([...deletedIds, catchId]));
-            await saveDeletedCatchIds(nextDeletedIds);
+              const deletedIds = await getDeletedCatchIds();
+              const nextDeletedIds = Array.from(new Set([...deletedIds, catchId]));
+              await saveDeletedCatchIds(nextDeletedIds);
 
-            const { error } = await supabase
-              .from('catches')
-              .delete()
-              .eq('id', catchId)
-              .eq('user_id', userId);
+              const { error } = await supabase
+                .from('catches')
+                .delete()
+                .eq('id', catchId)
+                .eq('user_id', userId);
 
-            if (error) throw error;
+              if (error) throw error;
 
-            const updated = catches.filter((item) => String(item.id) !== catchId);
-            setCatches(updated);
-            await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-            setSelectedCatch(null);
-          } catch (error: any) {
-            console.log('Delete error:', error);
-            Alert.alert('Delete failed', error?.message || 'Try again');
-          }
+              const updated = catches.filter((item) => String(item.id) !== catchId);
+              setCatches(updated);
+              await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+              setSelectedCatch(null);
+            } catch (error: any) {
+              console.log('Delete error:', error);
+              Alert.alert('Delete failed', error?.message || 'Try again');
+            }
+          },
         },
-      },
-    ]
-  );
-};
+      ]
+    );
+  };
+
   const renderEditBadge = () => (
-  <View style={styles.editButton}>
-    <Text style={styles.editText}>Edit</Text>
-  </View>
-);
+    <View style={styles.editButton}>
+      <Text style={styles.editText}>Edit</Text>
+    </View>
+  );
 
   const latest = catches[0];
   const rest = catches.slice(1);
@@ -520,7 +526,11 @@ setTimeout(() => {
                   onPress={() => openCatch(latest)}
                   style={styles.featuredCard}
                 >
-                  <Image source={{ uri: latest.uri }} style={styles.featuredImage} />
+                  <Image
+                    source={{ uri: latest.uri }}
+                    style={styles.featuredImage}
+                    resizeMode="contain"
+                  />
                   <View style={styles.featuredOverlay} />
 
                   {renderEditBadge()}
@@ -539,6 +549,7 @@ setTimeout(() => {
                         <Text style={styles.featuredPbText}>Personal Best</Text>
                       </View>
                     )}
+
                     {latest.isVaulted && (
                       <View style={styles.vaultBadge}>
                         <Text style={styles.vaultIcon}>🔒</Text>
@@ -588,7 +599,11 @@ setTimeout(() => {
                       activeOpacity={0.9}
                     >
                       <View style={styles.imageWrap}>
-                        <Image source={{ uri: item.uri }} style={styles.gridImage} />
+                        <Image
+  source={{ uri: item.uri }}
+  style={styles.gridImage}
+  resizeMode="cover"
+/>
                         <View style={styles.imageOverlay} />
 
                         {renderEditBadge()}
@@ -606,6 +621,7 @@ setTimeout(() => {
                             <Text style={styles.cardPbText}>PB</Text>
                           </View>
                         )}
+
                         {item.isVaulted && (
                           <View style={styles.cardVaultBadge}>
                             <Text style={styles.cardVaultIcon}>🔒</Text>
@@ -651,7 +667,7 @@ setTimeout(() => {
           {selectedCatch && (
             <KeyboardAvoidingView
               style={styles.detailFlex}
-              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
               keyboardVerticalOffset={0}
             >
               <View style={styles.detailFlex}>
@@ -663,10 +679,7 @@ setTimeout(() => {
                       <Text style={styles.deleteButtonText}>Delete</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity
-                      style={styles.closeDetailButton}
-                      onPress={closeCatch}
-                    >
+                    <TouchableOpacity style={styles.closeDetailButton} onPress={closeCatch}>
                       <Text style={styles.closeDetailText}>Close</Text>
                     </TouchableOpacity>
                   </View>
@@ -680,7 +693,11 @@ setTimeout(() => {
                   showsVerticalScrollIndicator={false}
                 >
                   <View style={styles.detailImageWrap}>
-                    <Image source={{ uri: selectedCatch.uri }} style={styles.detailImage} />
+                    <Image
+                      source={{ uri: selectedCatch.uri }}
+                      style={styles.detailImage}
+                      resizeMode="contain"
+                    />
                     <View style={styles.detailImageOverlay} />
 
                     {selectedCatch.isPersonalBest && (
@@ -710,20 +727,22 @@ setTimeout(() => {
 
                     <Text style={styles.inputLabel}>Date</Text>
                     <TextInput
-                      value={dateDraft}
-                      onChangeText={(text) => {
-                        setDateDraft(text);
-                        if (saveSuccess) setSaveSuccess(false);
-                      }}
-                      placeholder="Add date (optional)"
-                      placeholderTextColor="#7D8FA3"
-                      style={styles.metaInput}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      editable
-                      returnKeyType="done"
-                      blurOnSubmit
-                    />
+  value={dateDraft}
+  onChangeText={(text) => {
+    setDateDraft(text);
+    if (saveSuccess) setSaveSuccess(false);
+  }}
+  placeholder="Add date (optional)"
+  placeholderTextColor="#7D8FA3"
+  style={styles.metaInput}
+  autoCapitalize="none"
+  autoCorrect={false}
+  spellCheck={false}
+  editable
+  returnKeyType="done"
+  blurOnSubmit
+  keyboardAppearance="dark"
+/>
 
                     <TouchableOpacity
                       onPress={() => {
@@ -751,27 +770,33 @@ setTimeout(() => {
                       placeholderTextColor="#7D8FA3"
                       style={styles.metaInput}
                       autoCorrect={false}
+                      spellCheck={false}
                       editable
                       returnKeyType="done"
                       blurOnSubmit
+                      keyboardAppearance="dark"
                     />
 
                     <Text style={styles.inputLabel}>Story / Note</Text>
                     <TextInput
-                      value={noteDraft}
-                      onChangeText={(text) => {
-                        setNoteDraft(text);
-                        if (saveSuccess) setSaveSuccess(false);
-                      }}
-                      placeholder="Tell the story ie. lures, weight, structure, who's the net person..."
-                      placeholderTextColor="#7D8FA3"
-                      multiline
-                      style={styles.noteInput}
-                      editable
-                      autoCorrect
-                      returnKeyType="done"
-                      blurOnSubmit
-                    />
+  value={noteDraft}
+  onChangeText={(text) => {
+    setNoteDraft(text);
+    if (saveSuccess) setSaveSuccess(false);
+  }}
+  placeholder="Tell the story..."
+  placeholderTextColor="#7D8FA3"
+  multiline
+  style={styles.noteInput}
+  editable
+  autoCorrect={false}
+  spellCheck={false}
+  autoComplete="off"
+  textContentType="none"
+  importantForAutofill="no"
+  keyboardAppearance="dark"
+  inputAccessoryViewID=""
+/>
 
                     <TouchableOpacity
                       style={[
@@ -785,11 +810,12 @@ setTimeout(() => {
                       </Text>
                     </TouchableOpacity>
                   </View>
+
                   {saveSuccess && (
-  <Text style={styles.saveSuccessText}>
-    Changes saved successfully ✓
-  </Text>
-)}
+                    <Text style={styles.saveSuccessText}>
+                      Changes saved successfully ✓
+                    </Text>
+                  )}
 
                   <View
                     style={[
@@ -824,41 +850,45 @@ setTimeout(() => {
           )}
         </SafeAreaView>
       </Modal>
+
       <View style={styles.hiddenShareWrap} pointerEvents="none">
-  {shareItem && (
-    <ViewShot
-      ref={shareCardRef}
-      options={{ format: 'jpg', quality: 0.95 }}
-    >
-      <View style={styles.shareCard}>
-  <Image source={{ uri: shareItem.uri }} style={styles.shareCardImage} />
-
-  <View style={styles.shareCardMeta}>
-    {getDisplayedDate(shareItem) ? (
-      <Text style={styles.shareCardDate}>{getDisplayedDate(shareItem)}</Text>
-    ) : null}
-
-{getDisplayedLocation(shareItem) ? (
-  <Text style={styles.shareCardLocation}>
-    {getDisplayedLocation(shareItem)}
-  </Text>
-) : null}
-
-<Image source={require('../../assets/logo.png')}
-style={styles.shareCardLogo}
+        {shareItem && (
+          <ViewShot
+            ref={shareCardRef}
+            options={{ format: 'jpg', quality: 0.95 }}
+          >
+            <View style={styles.shareCard}>
+              <Image
+  source={{ uri: shareItem.uri }}
+  style={styles.shareCardImage}
+resizeMode="cover"
 />
-    <Text style={styles.shareCardNote}>
-      {shareItem.note || 'A catch worth remembering.'}
-    </Text>
 
-    <Text style={styles.shareCardBrand}>
-      REELWALL • A CATCH WORTH REMEMBERING 
-    </Text>
-  </View>
-</View>
-    </ViewShot>
-  )}
-</View>
+              <View style={styles.shareCardMeta}>
+                {getDisplayedDate(shareItem) ? (
+                  <Text style={styles.shareCardDate}>
+                    {getDisplayedDate(shareItem)}
+                  </Text>
+                ) : null}
+
+                {getDisplayedLocation(shareItem) ? (
+                  <Text style={styles.shareCardLocation}>
+                    {getDisplayedLocation(shareItem)}
+                  </Text>
+                ) : null}
+
+                <Text style={styles.shareCardNote}>
+                  {shareItem.note?.trim() || 'A catch worth remembering.'}
+                </Text>
+
+                <Text style={styles.shareCardBrand}>
+                  REELWALL • A CATCH WORTH REMEMBERING
+                </Text>
+              </View>
+            </View>
+          </ViewShot>
+        )}
+      </View>
     </SafeAreaView>
   );
 }
@@ -906,51 +936,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
     justifyContent: 'center',
-  },
-  vaultBadge: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(10,37,64,0.85)',
-    borderRadius: 999,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(242,201,76,0.5)',
-  },
-  vaultIcon: {
-    color: '#F2C94C',
-    fontSize: 11,
-  },
-  vaultText: {
-    color: '#F2C94C',
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  cardVaultBadge: {
-    position: 'absolute',
-    bottom: 10,
-    right: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(10,37,64,0.85)',
-    borderRadius: 999,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(242,201,76,0.5)',
-  },
-  cardVaultIcon: {
-    color: '#F2C94C',
-    fontSize: 9,
-  },
-  cardVaultText: {
-    color: '#F2C94C',
-    fontSize: 10,
-    fontWeight: '800',
   },
   statusPill: {
     backgroundColor: '#12314F',
@@ -1002,12 +987,12 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     borderRadius: 22,
     overflow: 'hidden',
-    backgroundColor: '#102C47',
+    backgroundColor: '#081E33',
   },
   featuredImage: {
     width: '100%',
     height: 340,
-    backgroundColor: '#163554',
+    backgroundColor: '#081E33',
   },
   featuredOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -1029,11 +1014,6 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     paddingHorizontal: 12,
     marginBottom: 8,
-    shadowColor: '#000',
-    shadowOpacity: 0.18,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
   },
   featuredPbIcon: {
     color: '#0A2540',
@@ -1043,6 +1023,28 @@ const styles = StyleSheet.create({
   featuredPbText: {
     color: '#0A2540',
     fontSize: 12,
+    fontWeight: '800',
+  },
+  vaultBadge: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(10,37,64,0.85)',
+    borderRadius: 999,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(242,201,76,0.5)',
+  },
+  vaultIcon: {
+    color: '#F2C94C',
+    fontSize: 11,
+  },
+  vaultText: {
+    color: '#F2C94C',
+    fontSize: 11,
     fontWeight: '800',
   },
   featuredDate: {
@@ -1082,13 +1084,14 @@ const styles = StyleSheet.create({
   imageWrap: {
     borderRadius: 18,
     overflow: 'hidden',
-    backgroundColor: '#102C47',
+    backgroundColor: '#081E33',
+    minHeight: 180,
   },
-  gridImage: {
-    width: '100%',
-    aspectRatio: 0.92,
-    backgroundColor: '#163554',
-  },
+ gridImage: {
+  width: '100%',
+  height: 180,
+  backgroundColor: '#081E33',
+},
   imageOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.24)',
@@ -1104,10 +1107,10 @@ const styles = StyleSheet.create({
     zIndex: 3,
   },
   editText: {
-  color: '#F2C94C',
-  fontSize: 12,
-  fontWeight: '800',
-},
+    color: '#F2C94C',
+    fontSize: 12,
+    fontWeight: '800',
+  },
   shareButton: {
     position: 'absolute',
     top: 10,
@@ -1142,6 +1145,29 @@ const styles = StyleSheet.create({
   },
   cardPbText: {
     color: '#0A2540',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  cardVaultBadge: {
+    position: 'absolute',
+    bottom: 10,
+    right: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(10,37,64,0.85)',
+    borderRadius: 999,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(242,201,76,0.5)',
+  },
+  cardVaultIcon: {
+    color: '#F2C94C',
+    fontSize: 9,
+  },
+  cardVaultText: {
+    color: '#F2C94C',
     fontSize: 10,
     fontWeight: '800',
   },
@@ -1221,18 +1247,18 @@ const styles = StyleSheet.create({
   },
   detailContent: {
     padding: 20,
-    paddingBottom: 28,
+    paddingBottom: 40,
   },
   detailImageWrap: {
     borderRadius: 22,
     overflow: 'hidden',
     marginBottom: 16,
-    backgroundColor: '#102C47',
+    backgroundColor: '#081E33',
   },
   detailImage: {
     width: '100%',
     height: 340,
-    backgroundColor: '#163554',
+    backgroundColor: '#081E33',
   },
   detailImageOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -1249,11 +1275,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingVertical: 7,
     paddingHorizontal: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
   },
   detailPbIcon: {
     color: '#0A2540',
@@ -1351,8 +1372,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#081E33',
     borderRadius: 16,
     color: '#F5F7FA',
-    minHeight: 90,
-    maxHeight: 120,
+    minHeight: 130,
+    maxHeight: 180,
     padding: 12,
     textAlignVertical: 'top',
     fontSize: 15,
@@ -1401,79 +1422,58 @@ const styles = StyleSheet.create({
     paddingRight: 12,
   },
   saveSuccessText: {
-  color: '#4CAF50',
-  fontSize: 13,
-  fontWeight: '700',
-  textAlign: 'center',
-  marginTop: 8,
-},
-hiddenShareWrap: {
-  position: 'absolute',
-  left: -10000,
-  top: 0,
-  width: 390,
-},
-
-shareCard: {
-  width: 390,
-  overflow: 'hidden',
-  backgroundColor: '#102C47',
-},
-
-shareCardImage: {
+    color: '#4CAF50',
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  hiddenShareWrap: {
+    position: 'absolute',
+    left: -10000,
+    top: 0,
+    width: 390,
+  },
+  shareCard: {
+    width: '100%',
+    overflow: 'hidden',
+    alignSelf: 'center',
+    backgroundColor: '#102C47',
+  },
+  shareCardImage: {
   width: '100%',
-  height: 300,
-  resizeMode: 'cover'
+  aspectRatio: 4 / 5,
+  backgroundColor: '#081E33',
 },
-
-shareCardOverlay: {
-  position: 'absolute',
-  left: 0,
-  right: 0,
-  bottom: 0,
-  height: 260,
-},
-
-shareCardLogo: {
-  position: 'absolute',
-  opacity: 0.85,
-  right: 16,
-  bottom: 16,
-  height: 40,
-},
-
-shareCardMeta: {
-  backgroundColor: '#102C47',
-  paddingHorizontal:20,
-  paddingTop: 16,
-  paddingBottom: 6,
-},
-
-shareCardDate: {
-  color: '#F2C94C',
-  fontSize: 18,
-  fontWeight: '800',
-  marginBottom: 8,
-},
-
-shareCardLocation: {
-  color: '#A5B3C2',
-  fontSize: 14,
-  fontWeight: '600',
-  marginBottom: 10,
-},
-
-shareCardNote: {
-  color: '#FFFFFF',
-  fontSize: 14,
-  fontWeight: '600',
-  lineHeight: 20,
-  marginBottom: 12,
-},
-
-shareCardBrand: {
-  color: '#F2C94C',
-  fontSize: 10,
-  fontWeight: '800',
-  letterSpacing: 1,
-  },});
+  shareCardMeta: {
+    backgroundColor: '#102C47',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 20,
+  },
+  shareCardDate: {
+    color: '#F2C94C',
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 8,
+  },
+  shareCardLocation: {
+    color: '#A5B3C2',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 10,
+  },
+  shareCardNote: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  shareCardBrand: {
+    color: '#F2C94C',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+});

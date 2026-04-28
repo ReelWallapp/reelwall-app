@@ -345,7 +345,7 @@ export default function EditProfileScreen() {
                 value={boat}
                 onChangeText={setBoat}
                 style={styles.input}
-                placeholder="Boat type"
+                placeholder="Boat type (if any)"
                 placeholderTextColor="#7D8FA3"
               />
 
@@ -354,7 +354,7 @@ export default function EditProfileScreen() {
                 value={species}
                 onChangeText={setSpecies}
                 style={styles.input}
-                placeholder="Bass, Trout..."
+                placeholder="Bass, Trout, Multi-species..."
                 placeholderTextColor="#7D8FA3"
               />
             </View>
@@ -368,21 +368,6 @@ export default function EditProfileScreen() {
                 {saving ? 'Saving...' : 'Save Profile'}
               </Text>
             </TouchableOpacity>
-            <View style={{ marginTop: 30, marginBottom: 40 }}>
-  <View style={styles.card}>
-    <Text style={styles.label}>Account</Text>
-
-    <TouchableOpacity
-      style={styles.deleteAccountButton}
-      onPress={handleDeleteAccount}
-      activeOpacity={0.85}
-    >
-      <Text style={styles.deleteAccountButtonText}>
-        Delete Account
-      </Text>
-    </TouchableOpacity>
-  </View>
-</View>
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>

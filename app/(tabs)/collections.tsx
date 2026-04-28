@@ -144,8 +144,9 @@ async function handleShareCollection(collection: CollectionItem) {
 
   try {
     await Share.share({
-      message: `Check out this collection on ReelWall\n\n${url}`,
-    });
+  message: `Check out this collection on ReelWall\n\n${url}`,
+  url,
+});
   } catch (e) {
     console.log('Share error:', e);
   }

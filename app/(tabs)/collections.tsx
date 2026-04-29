@@ -34,6 +34,9 @@ type CatchItem = {
   place_name?: string | null;
   region_name?: string | null;
   created_at?: string | null;
+  catch_date?: string | null;
+  date?: string | null;
+  caught_at?: string | null;
   is_personal_best?: boolean | null;
   user_id?: string | null;
   source?: 'camera' | 'upload';
@@ -43,6 +46,9 @@ type LocalCatchItem = {
   id: string;
   uri: string;
   createdAt: string;
+  catchDate?: string;
+  caughtAt?: string;
+  date?: string;
   placeName?: string;
   regionName?: string;
   weatherTemp?: number;
@@ -79,17 +85,45 @@ const MUTED_2 = '#9FB0C2';
 const SUCCESS = '#35D07F';
 const DANGER = '#E86C6C';
 
+function isWebSafeUrl(url?: string | null) {
+  if (!url) return false;
+
+  return (
+    url.startsWith('http://') ||
+    url.startsWith('https://')
+  );
+}
+
 function mapLocalCatchToRow(item: LocalCatchItem): CatchItem {
   return {
     id: String(item.id),
-    image_url: item.uri || null,
+
+    // ✅ ONLY allow real URLs
+    image_url: isWebSafeUrl(item.uri) ? item.uri : null,
+
     note: item.note || '',
     place_name: item.placeName || null,
     region_name: item.regionName || null,
     created_at: item.createdAt || null,
+    catch_date:
+      item.catchDate || item.date || item.caughtAt || item.createdAt || null,
+    caught_at: item.caughtAt || null,
+    date: item.date || null,
     is_personal_best: item.isPersonalBest ?? false,
     source: item.source || 'camera',
   };
+}
+
+function getCatchDisplayDate(item?: CatchItem | null) {
+  if (!item) return '';
+
+  return (
+    item.catch_date ||
+    item.caught_at ||
+    item.date ||
+    item.created_at ||
+    ''
+  );
 }
 
 function mergeCatchesByIdOrImage(
@@ -108,8 +142,8 @@ function mergeCatchesByIdOrImage(
 
   return merged.sort((a, b) => {
     return (
-      new Date(b.created_at || 0).getTime() -
-      new Date(a.created_at || 0).getTime()
+      new Date(getCatchDisplayDate(b) || 0).getTime() -
+      new Date(getCatchDisplayDate(a) || 0).getTime()
     );
   });
 }
@@ -269,7 +303,7 @@ const collectionShareCardRef = useRef<View | null>(null);
         item.place_name || '',
         item.region_name || '',
         item.note || '',
-        formatDate(item.created_at),
+        formatDate(getCatchDisplayDate(item)),
       ].join(' ');
       return values.toLowerCase().includes(q);
     });
@@ -284,15 +318,20 @@ const collectionShareCardRef = useRef<View | null>(null);
   }, [galleryCollectionFresh, catchesById]);
 
   function formatDate(value?: string | null) {
-    if (!value) return '';
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return '';
-    return d.toLocaleDateString(undefined, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+  if (!value) return '';
+
+  const d = new Date(value);
+
+  if (Number.isNaN(d.getTime())) {
+    return value;
   }
+
+  return d.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+}
 
   function getCatchLabel(item: CatchItem) {
     if (item.place_name) return item.place_name;
@@ -648,10 +687,10 @@ const collectionShareCardRef = useRef<View | null>(null);
   return (
     <View style={styles.collectionCard}>
       <TouchableOpacity
-        style={styles.heroWrap}
-        activeOpacity={0.92}
-        onPress={() => handleViewOnWeb(item)}
-      >
+  style={styles.heroWrap}
+  activeOpacity={0.92}
+  onPress={() => openCollectionPhotos(item)}
+>
         {coverImage ? (
           <Image source={{ uri: coverImage }} style={styles.heroImage} />
         ) : (
@@ -682,7 +721,7 @@ const collectionShareCardRef = useRef<View | null>(null);
       </TouchableOpacity>
 
       <Text style={styles.metaLine}>{meta}</Text>
-      <Text style={styles.tapHint}>Open this collection to see the story</Text>
+      <Text style={styles.tapHint}>Tap image to view collection photos</Text>
 
       <View style={styles.cardActionRow}>
         <TouchableOpacity
@@ -748,7 +787,7 @@ const collectionShareCardRef = useRef<View | null>(null);
           </Text>
 
           <Text style={styles.manageCatchDate} numberOfLines={1}>
-            {formatDate(item.created_at) || ' '}
+            {formatDate(getCatchDisplayDate(item)) || ' '}
           </Text>
 
           <View style={[styles.manageStatusPill, added && styles.manageStatusPillAdded]}>
@@ -783,20 +822,27 @@ const collectionShareCardRef = useRef<View | null>(null);
 
         <View style={styles.galleryPhotoOverlay} />
 
+        <View style={styles.galleryPhotoBottom}>
+  <Text style={styles.galleryPhotoTitle} numberOfLines={1}>
+    {getCatchLabel(item)}
+  </Text>
+
+  {!!formatDate(getCatchDisplayDate(item)) && (
+    <Text style={styles.galleryPhotoDate} numberOfLines={1}>
+      {formatDate(getCatchDisplayDate(item))}
+    </Text>
+  )}
+</View>
+
+
+
         {!!item.is_personal_best && (
           <View style={styles.pbBadge}>
             <Text style={styles.pbBadgeText}>PB</Text>
           </View>
         )}
 
-        <View style={styles.galleryPhotoBottom}>
-          <Text style={styles.galleryPhotoTitle} numberOfLines={1}>
-            {getCatchLabel(item)}
-          </Text>
-          <Text style={styles.galleryPhotoDate} numberOfLines={1}>
-            {formatDate(item.created_at) || ' '}
-          </Text>
-        </View>
+    
       </TouchableOpacity>
     );
   }
@@ -1190,6 +1236,7 @@ secondaryButtonText: {
     marginBottom: 8,
   },
 
+  
 
 
   subtitle: {

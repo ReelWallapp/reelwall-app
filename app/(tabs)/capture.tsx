@@ -108,26 +108,28 @@ export default function CaptureScreen() {
   };
 
   const uploadImageToSupabase = async (uri: string) => {
-    const fileExt = 'jpg';
-    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
-    const filePath = `public/${fileName}`;
+  const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+  const filePath = `public/${fileName}`;
 
-    const base64 = await FileSystem.readAsStringAsync(uri, {
-      encoding: 'base64',
+  const base64 = await FileSystem.readAsStringAsync(uri, {
+    encoding: 'base64',
+  });
+
+  const { error: uploadError } = await supabase.storage
+    .from('catches')
+    .upload(filePath, decode(base64), {
+      contentType: 'image/jpeg',
+      upsert: false,
     });
 
-    const { error: uploadError } = await supabase.storage
-      .from('catches')
-      .upload(filePath, decode(base64), {
-        contentType: 'image/jpeg',
-        upsert: false,
-      });
+  if (uploadError) throw uploadError;
 
-    if (uploadError) throw uploadError;
+  const publicImageUrl = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/storage/v1/object/public/catches/${filePath}`;
 
-    const { data } = supabase.storage.from('catches').getPublicUrl(filePath);
-    return data.publicUrl;
-  };
+return publicImageUrl;
+};
+
+
 
   const saveCatch = async (localUri: string, source: 'camera' | 'upload') => {
     const normalizedUri = await normalizeImageForUpload(localUri);

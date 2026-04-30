@@ -124,16 +124,14 @@ export default function CaptureScreen() {
 
   if (uploadError) throw uploadError;
 
-  const publicImageUrl = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/storage/v1/object/public/catches/${filePath}`;
-
-return publicImageUrl;
+  return filePath;
 };
 
 
 
   const saveCatch = async (localUri: string, source: 'camera' | 'upload') => {
     const normalizedUri = await normalizeImageForUpload(localUri);
-    const publicImageUrl = await uploadImageToSupabase(normalizedUri);
+    const imagePath = await uploadImageToSupabase(normalizedUri);
     const createdAt = new Date().toISOString();
 
     let placeName: string | undefined;
@@ -182,7 +180,7 @@ return publicImageUrl;
       .insert([
         {
           user_id: user.id,
-          image_url: publicImageUrl,
+          image_url: imagePath,
           note: '',
           place_name: source === 'upload' ? null : placeName || null,
           region_name: source === 'upload' ? null : regionName || null,

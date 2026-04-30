@@ -85,6 +85,20 @@ const MUTED_2 = '#9FB0C2';
 const SUCCESS = '#35D07F';
 const DANGER = '#E86C6C';
 
+function getPublicImageUrl(value?: string | null) {
+  if (!value) return '';
+
+  if (value.startsWith('file://')) return '';
+
+  if (value.startsWith('http://') || value.startsWith('https://')) {
+    return value;
+  }
+
+  const cleanPath = value.replace(/^\/+/, '').replace(/^catches\//, '');
+
+  return `${process.env.EXPO_PUBLIC_SUPABASE_URL}/storage/v1/object/public/catches/${cleanPath}`;
+}
+
 function isWebSafeUrl(url?: string | null) {
   if (!url) return false;
 
@@ -98,8 +112,8 @@ function mapLocalCatchToRow(item: LocalCatchItem): CatchItem {
   return {
     id: String(item.id),
 
-    // ✅ ONLY allow real URLs
-    image_url: isWebSafeUrl(item.uri) ? item.uri : null,
+  
+    image_url: item.uri || null,
 
     note: item.note || '',
     place_name: item.placeName || null,
@@ -602,11 +616,15 @@ const collectionShareCardRef = useRef<View | null>(null);
       return;
     }
 
-    if (!collection.cover_image_url && catchItem?.image_url) {
-      await updateCollectionCoverFromCatch(collectionId, catchItem.image_url);
-    } else {
-      await loadData();
-    }
+   if (!collection.cover_image_url && catchItem?.image_url) {
+  const cleanPath = catchItem.image_url.includes('/storage/')
+    ? catchItem.image_url.split('/public/catches/')[1]
+    : catchItem.image_url;
+
+  await updateCollectionCoverFromCatch(collectionId, cleanPath);
+} else {
+  await loadData();
+}
 
     setSavingCatchId(null);
   }
@@ -673,7 +691,9 @@ const collectionShareCardRef = useRef<View | null>(null);
     .map((id) => catchesById.get(id))
     .filter(Boolean) as CatchItem[];
 
-  const coverImage = item.cover_image_url || linkedCatches[0]?.image_url || '';
+  const coverImage = getPublicImageUrl(
+  item.cover_image_url || linkedCatches[0]?.image_url || ''
+);
   const photoCount = linkedCatches.length;
 
   const meta = [
@@ -766,7 +786,7 @@ const collectionShareCardRef = useRef<View | null>(null);
         onPress={() => toggleCatchInCollection(selectedCollectionFresh.id, item.id)}
       >
         {!!item.image_url ? (
-          <Image source={{ uri: item.image_url }} style={styles.manageCatchImage} />
+          <Image source={{ uri: getPublicImageUrl(item.image_url) }} style={styles.manageCatchImage} />
         ) : (
           <View style={styles.manageCatchFallback}>
             <Text style={styles.manageCatchFallbackText}>No photo</Text>
@@ -810,10 +830,10 @@ const collectionShareCardRef = useRef<View | null>(null);
       <TouchableOpacity
         style={styles.galleryPhotoCard}
         activeOpacity={0.92}
-        onPress={() => openFullscreenImage(item.image_url)}
+        onPress={() => openFullscreenImage(getPublicImageUrl(item.image_url))}
       >
         {!!item.image_url ? (
-          <Image source={{ uri: item.image_url }} style={styles.galleryPhotoImage} />
+          <Image source={{ uri: getPublicImageUrl(item.image_url) }} style={styles.galleryPhotoImage} />
         ) : (
           <View style={styles.galleryPhotoFallback}>
             <Text style={styles.galleryPhotoFallbackText}>No photo</Text>
@@ -1156,10 +1176,11 @@ const collectionShareCardRef = useRef<View | null>(null);
     
         <Image
           source={{
-            uri:
-              shareCollectionItem.cover_image_url ||
-              catchesById.get(shareCollectionItem.catchIds[0])?.image_url ||
-              '',
+            uri: getPublicImageUrl(
+  shareCollectionItem.cover_image_url ||
+  catchesById.get(shareCollectionItem.catchIds[0])?.image_url ||
+  ''
+),
           }}
           style={styles.collectionShareImage}
         />

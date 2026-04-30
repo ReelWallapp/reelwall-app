@@ -105,9 +105,23 @@ const getImageRatio = (item: CatchItem) => {
     );
   };
 
+  const getPublicImageUrl = (value?: string | null) => {
+  if (!value) return '';
+
+  if (value.startsWith('file://')) return '';
+
+  if (value.startsWith('http://') || value.startsWith('https://')) {
+    return value;
+  }
+
+  const cleanPath = value.replace(/^\/+/, '').replace(/^catches\//, '');
+
+  return `${process.env.EXPO_PUBLIC_SUPABASE_URL}/storage/v1/object/public/catches/${cleanPath}`;
+};
+
   const mapRowToCatch = (item: any): CatchItem => ({
     id: String(item.id),
-    uri: item.image_url,
+    uri: getPublicImageUrl(item.image_url),
     createdAt: item.created_at,
     catchDate: item.catch_date || undefined,
     placeName: item.place_name || undefined,

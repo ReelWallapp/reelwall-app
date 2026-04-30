@@ -24,6 +24,7 @@ const PROFILE_PHOTO_KEY = 'reelwall_profile_photo';
 const PROFILE_LOCATION_KEY = 'reelwall_profile_location';
 const PROFILE_BOAT_KEY = 'reelwall_profile_boat';
 const PROFILE_SPECIES_KEY = 'reelwall_profile_species';
+const PROFILE_TECHNIQUE_KEY = 'reelwall_profile_technique';
 
 export default function EditProfileScreen() {
   const [name, setName] = useState('');
@@ -31,6 +32,7 @@ export default function EditProfileScreen() {
   const [location, setLocation] = useState('');
   const [boat, setBoat] = useState('');
   const [species, setSpecies] = useState('');
+  const [technique, setTechnique] = useState('');
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
@@ -45,13 +47,15 @@ export default function EditProfileScreen() {
       const savedLocation = await AsyncStorage.getItem(PROFILE_LOCATION_KEY);
       const savedBoat = await AsyncStorage.getItem(PROFILE_BOAT_KEY);
       const savedSpecies = await AsyncStorage.getItem(PROFILE_SPECIES_KEY);
+      const savedTechnique = await AsyncStorage.getItem(PROFILE_TECHNIQUE_KEY);
 
+      
       setName(savedName || '');
       setPhotoUri(savedPhoto || '');
       setLocation(savedLocation || '');
       setBoat(savedBoat || '');
       setSpecies(savedSpecies || '');
-    } catch (error) {
+          } catch (error) {
       console.log('Local load error:', error);
     }
   };
@@ -120,6 +124,7 @@ export default function EditProfileScreen() {
       setLocation(profile.location || '');
       setBoat(profile.boat || '');
       setSpecies(profile.species || '');
+      setTechnique(profile.favorite_technique || '');
     } catch (error) {
       console.log('loadProfile error:', error);
     }
@@ -228,7 +233,9 @@ export default function EditProfileScreen() {
       const trimmedLocation = location.trim();
       const trimmedBoat = boat.trim();
       const trimmedSpecies = species.trim();
+      const trimmedTechnique = technique.trim();
 
+      await AsyncStorage.setItem(PROFILE_TECHNIQUE_KEY, trimmedTechnique);
       await AsyncStorage.setItem(PROFILE_NAME_KEY, trimmedName);
       await AsyncStorage.setItem(PROFILE_PHOTO_KEY, trimmedPhoto);
       await AsyncStorage.setItem(PROFILE_LOCATION_KEY, trimmedLocation);
@@ -250,6 +257,8 @@ export default function EditProfileScreen() {
           location: trimmedLocation || null,
           boat: trimmedBoat || null,
           species: trimmedSpecies || null,
+          favorite_technique: trimmedTechnique || null,
+          
         });
 
         if (saveError) {
@@ -356,6 +365,14 @@ export default function EditProfileScreen() {
                 style={styles.input}
                 placeholder="Bass, Trout, Multi-species..."
                 placeholderTextColor="#7D8FA3"
+              />
+              <Text style={[styles.label, { marginTop: 14 }]}>Fav Technique</Text>
+              <TextInput
+              value={technique}
+              onChangeText={setTechnique}
+              style={styles.input}
+              placeholder="Casting, Jigging, Fly..."
+              placeholderTextColor="#7D8FA3"
               />
             </View>
 

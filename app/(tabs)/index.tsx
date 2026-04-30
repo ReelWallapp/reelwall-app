@@ -485,7 +485,7 @@ const getImageRatio = (item: CatchItem) => {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.topHeader}>
-          <Text style={styles.eyebrow}>YOUR DIGITAL TROPHY WALL</Text>
+          <Text style={styles.eyebrow}>REELWALL</Text>
 
           <Image
             source={require('../../assets/logo.png')}
@@ -493,31 +493,28 @@ const getImageRatio = (item: CatchItem) => {
             resizeMode="contain"
           />
 
-          <Text style={styles.subtitle}>Every Catch Has a Story</Text>
+          <Text style={styles.subtitle}>Every Fish Has a Story</Text>
 
-          <View style={styles.statusRow}>
-            <View style={styles.statusPill}>
-              <Text style={styles.statusPillText}>🎣 {catches.length} Catches</Text>
-            </View>
+         <View style={styles.statRow}>
+  <Text style={styles.statMain}>RW</Text>
+<Text style={styles.statLabel}>Wall</Text>
 
-            <View style={styles.statusPill}>
-              <Text style={styles.statusPillText}>
-                {privacySettings.profileVisibility === 'public'
-                  ? '🌍 Public Wall'
-                  : '🔒 Private Wall'}
-              </Text>
-            </View>
+  <Text style={styles.statDivider}>•</Text>
 
-            <View style={styles.statusPill}>
-              <Text style={styles.statusPillText}>
-                {privacySettings.locationVisibility === 'exact'
-                  ? '📍 Location Saved'
-                  : privacySettings.locationVisibility === 'approximate'
-                    ? '📍 Approx Location'
-                    : '📍 Location Hidden'}
-              </Text>
-            </View>
-          </View>
+  <Text style={styles.statSub}>
+    {privacySettings.profileVisibility === 'public' ? 'Public' : 'Private'}
+  </Text>
+
+  <Text style={styles.statDivider}>•</Text>
+
+  <Text style={styles.statSub}>
+    {privacySettings.locationVisibility === 'exact'
+      ? 'Exact Location'
+      : privacySettings.locationVisibility === 'approximate'
+        ? 'Approx Location'
+        : 'Hidden Location'}
+  </Text>
+</View>
         </View>
 
         {catches.length === 0 ? (
@@ -533,7 +530,8 @@ const getImageRatio = (item: CatchItem) => {
           <>
             {latest && (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Latest Catches</Text>
+                <View style={styles.headerDivider} />
+                <Text style={styles.sectionTitle}>Latest Bite</Text>
 
                 <TouchableOpacity
                   activeOpacity={0.9}
@@ -563,6 +561,8 @@ const getImageRatio = (item: CatchItem) => {
                         <Text style={styles.featuredPbText}>Personal Best</Text>
                       </View>
                     )}
+
+
 
                     {latest.isVaulted && (
                       <View style={styles.vaultBadge}>
@@ -679,25 +679,33 @@ const getImageRatio = (item: CatchItem) => {
       <Modal visible={!!selectedCatch} animationType="slide" presentationStyle="fullScreen">
         <SafeAreaView style={styles.detailContainer}>
           {selectedCatch && (
-            <KeyboardAvoidingView
-              style={styles.detailFlex}
-              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-              keyboardVerticalOffset={0}
-            >
+           <KeyboardAvoidingView
+  style={styles.detailFlex}
+  behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+  keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 20}
+>
               <View style={styles.detailFlex}>
-                <View style={styles.detailHeader}>
-                  <Text style={styles.detailTitle}>Catch Detail</Text>
+               <View style={styles.detailHeader}>
+  <Text style={styles.detailTitle}>Fish Details</Text>
 
-                  <View style={styles.detailHeaderActions}>
-                    <TouchableOpacity style={styles.deleteButton} onPress={deleteCatch}>
-                      <Text style={styles.deleteButtonText}>Delete</Text>
-                    </TouchableOpacity>
+  <View style={styles.detailHeaderActions}>
+    <TouchableOpacity
+      style={[
+        styles.headerSaveButton,
+        saveSuccess && styles.headerSaveButtonSaved,
+      ]}
+      onPress={saveAll}
+    >
+      <Text style={styles.headerSaveButtonText}>
+        {saveSuccess ? 'Saved ✓' : 'Save'}
+      </Text>
+    </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.closeDetailButton} onPress={closeCatch}>
-                      <Text style={styles.closeDetailText}>Close</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
+    <TouchableOpacity style={styles.closeDetailButton} onPress={closeCatch}>
+      <Text style={styles.closeDetailText}>Close</Text>
+    </TouchableOpacity>
+  </View>
+</View>
 
                 <ScrollView
                   style={styles.detailFlex}
@@ -737,7 +745,7 @@ const getImageRatio = (item: CatchItem) => {
                   </View>
 
                   <View style={styles.editCard}>
-                    <Text style={styles.editSectionTitle}>Edit Catch Details</Text>
+                    <Text style={styles.editSectionTitle}>Details</Text>
 
                     <Text style={styles.inputLabel}>Date</Text>
                     <TextInput
@@ -809,21 +817,10 @@ const getImageRatio = (item: CatchItem) => {
   textContentType="none"
   importantForAutofill="no"
   keyboardAppearance="dark"
-  inputAccessoryViewID=""
+
 />
 
-                    <TouchableOpacity
-                      style={[
-                        styles.saveDetailsButton,
-                        saveSuccess && styles.saveDetailsButtonSaved,
-                      ]}
-                      onPress={saveAll}
-                    >
-                      <Text style={styles.saveDetailsButtonText}>
-                        {saveSuccess ? 'Saved ✓' : 'Save Changes'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
+             </View>       
 
                   {saveSuccess && (
                     <Text style={styles.saveSuccessText}>
@@ -858,6 +855,9 @@ const getImageRatio = (item: CatchItem) => {
                       />
                     </View>
                   </View>
+                  <TouchableOpacity style={styles.bottomDeleteButton} onPress={deleteCatch}>
+  <Text style={styles.bottomDeleteButtonText}>Delete Catch</Text>
+</TouchableOpacity>
                 </ScrollView>
               </View>
             </KeyboardAvoidingView>
@@ -921,31 +921,34 @@ const styles = StyleSheet.create({
   topHeader: {
     alignItems: 'center',
     marginTop: 12,
-    marginBottom: 14,
+    marginBottom: 28,
     paddingHorizontal: 20,
   },
   logo: {
-    width: 200,
-    height: 200,
+    width: 220,
+    height: 220,
     alignSelf: 'center',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   eyebrow: {
     color: '#F2C94C',
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 1,
-    marginBottom: 8,
+    fontSize: 16,
+    fontWeight: '900',
+    letterSpacing: 2,
+    marginBottom: 4,
+    opacity: 0.9,
   },
   subtitle: {
     fontSize: 15,
     color: '#A5B3C2',
     textAlign: 'center',
     fontWeight: '600',
-    marginTop: 6,
+    marginTop: 10,
+    marginBottom: 6,
   },
   statusRow: {
-    marginTop: 14,
+    marginTop: 6,
+    opacity: 0.85,
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
@@ -977,6 +980,74 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
   },
+  headerSaveButton: {
+  backgroundColor: '#F2C94C',
+  paddingVertical: 10,
+  paddingHorizontal: 16,
+  borderRadius: 14,
+},
+statRow: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  marginTop: 10,
+  opacity: 0.85,
+  flexWrap: 'wrap',
+  justifyContent: 'center',
+},
+
+statMain: {
+  color: '#F2C94C',
+  fontSize: 14,
+  fontWeight: '900',
+  marginRight: 6,
+},
+
+statLabel: {
+  color: '#F5F7FA',
+  fontSize: 14,
+  fontWeight: '700',
+  marginRight: 8,
+},
+headerDivider: {
+  height: 1,
+  backgroundColor: 'rgba(255,255,255,0.06)',
+  marginHorizontal: 40,
+  marginTop: 16,
+  marginBottom: 10,
+},
+statDivider: {
+  color: '#4F6B85',
+  marginHorizontal: 6,
+},
+
+statSub: {
+  color: '#A5B3C2',
+  fontSize: 13,
+  fontWeight: '600',
+},
+headerSaveButtonSaved: {
+  backgroundColor: '#2ECC71',
+},
+
+headerSaveButtonText: {
+  color: '#0A2540',
+  fontWeight: '800',
+},
+
+bottomDeleteButton: {
+  backgroundColor: '#5A1F1F',
+  paddingVertical: 14,
+  borderRadius: 16,
+  alignItems: 'center',
+  marginTop: 4,
+  marginBottom: 30,
+},
+
+bottomDeleteButtonText: {
+  color: '#FFD7D7',
+  fontWeight: '800',
+  fontSize: 15,
+},
   placeholder: {
     height: 300,
     borderRadius: 22,
@@ -1260,9 +1331,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   detailContent: {
-    padding: 20,
-    paddingBottom: 40,
-  },
+  padding: 20,
+  paddingBottom: 180,
+},
   detailImageWrap: {
     borderRadius: 22,
     overflow: 'hidden',
@@ -1318,13 +1389,15 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   editCard: {
-    backgroundColor: '#102C47',
-    borderRadius: 20,
-    padding: 14,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
-  },
+  backgroundColor: '#102C47',
+  borderRadius: 20,
+  padding: 14,
+  marginBottom: 16,
+  shadowColor: '#000',
+  shadowOpacity: 0.2,
+  shadowRadius: 10,
+  elevation: 4,
+},
   editSectionTitle: {
     color: '#F5F7FA',
     fontSize: 18,

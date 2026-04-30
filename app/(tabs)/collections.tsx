@@ -757,7 +757,7 @@ const collectionShareCardRef = useRef<View | null>(null);
           onPress={() => handleViewOnWeb(item)}
           activeOpacity={0.88}
         >
-          <Text style={styles.secondaryButtonText}>View</Text>
+          <Text style={styles.secondaryButtonText}>Web View</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -765,7 +765,7 @@ const collectionShareCardRef = useRef<View | null>(null);
           onPress={() => handleShareCollection(item)}
           activeOpacity={0.88}
         >
-          <Text style={styles.secondaryButtonText}>Share</Text>
+          <Text style={styles.secondaryButtonText}>Cast</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -886,7 +886,7 @@ const collectionShareCardRef = useRef<View | null>(null);
             <Text style={styles.eyebrow}>COLLECTIONS</Text>
             <Text style={styles.title}>Your Collections</Text>
             <Text style={styles.subtitle}>
-              Group your catches. Build your legacy. Every collection tells a story.
+              Group your fishing experinces. Build your legacy. Every collection tells a story.
             </Text>
 
             <TouchableOpacity
@@ -905,7 +905,7 @@ const collectionShareCardRef = useRef<View | null>(null);
 
               <View style={styles.pageSummaryCard}>
                 <Text style={styles.pageSummaryNumber}>{catches.length}</Text>
-                <Text style={styles.pageSummaryLabel}>Total Catches</Text>
+                <Text style={styles.pageSummaryLabel}>Fish Counter</Text>
               </View>
             </View>
           </View>

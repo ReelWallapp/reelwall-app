@@ -52,6 +52,7 @@ export default function Profile() {
   const [location, setLocation] = useState('');
   const [boat, setBoat] = useState('');
   const [species, setSpecies] = useState('');
+  const [technique, setTechnique] = useState(''); // ✅ MOVE HERE
 
   const [privacySettings, setPrivacySettings] = useState<PrivacySettings>({
     profileVisibility: 'private',
@@ -123,6 +124,7 @@ export default function Profile() {
       const savedBoat = await AsyncStorage.getItem(PROFILE_BOAT_KEY);
       const savedSpecies = await AsyncStorage.getItem(PROFILE_SPECIES_KEY);
 
+
       if (savedLocation) setLocation(savedLocation);
       if (savedBoat) setBoat(savedBoat);
       if (savedSpecies) setSpecies(savedSpecies);
@@ -185,6 +187,7 @@ export default function Profile() {
           profile.profile_species ||
           ''
       );
+      setTechnique(profile.favorite_technique || '');
     } catch (error) {
       console.log('loadProfileFromSupabase error:', error);
     }
@@ -231,7 +234,11 @@ const handleDeleteAccount = () => {
       {
         text: 'Confirm',
         style: 'destructive',
-        onPress: async () => {
+        onPress: async (text?: string) => {
+  if (text !== 'DELETE') {
+    Alert.alert('Not deleted', 'You must type DELETE exactly.');
+    return;
+  }
           
 
           try {
@@ -455,16 +462,7 @@ const handleDeleteAccount = () => {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.headerTopRow}>
-          <View style={styles.headerSpacer} />
-          <TouchableOpacity
-            style={styles.editIconButton}
-            onPress={() => router.push('/edit-profile')}
-            activeOpacity={0.85}
-          >
-            <Ionicons name="pencil" size={18} color={PRIMARY} />
-          </TouchableOpacity>
-        </View>
+        
 
         <View style={styles.profileHeader}>
           <View style={styles.avatar}>
@@ -479,12 +477,13 @@ const handleDeleteAccount = () => {
           <Text style={styles.profileSub}>Digital Trophy Wall</Text>
 
           <TouchableOpacity
-            style={styles.editProfileButton}
-            onPress={() => router.push('/edit-profile')}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.editProfileButtonText}>Edit Profile</Text>
-          </TouchableOpacity>
+  style={styles.editProfileButton}
+  onPress={() => router.push('/edit-profile')}
+  activeOpacity={0.85}
+>
+  <Ionicons name="pencil" size={14} color="#102C47" />
+  <Text style={styles.editProfileButtonText}>Edit</Text>
+</TouchableOpacity>
 
           
         </View>
@@ -492,7 +491,7 @@ const handleDeleteAccount = () => {
         <View style={styles.statsRow}>
           <View style={styles.statBox}>
             <Text style={styles.statNumber}>{catchCount}</Text>
-            <Text style={styles.statLabel}>Catches</Text>
+            <Text style={styles.statLabel}>Fish Counter</Text>
           </View>
 
           <View style={styles.statBox}>
@@ -515,14 +514,21 @@ const handleDeleteAccount = () => {
           </View>
 
           <View style={styles.profileRow}>
-            <Text style={styles.profileLabel}>Boat</Text>
-            <Text style={styles.profileValue}>{boat || 'Not set'}</Text>
-          </View>
+  <Text style={styles.profileLabel}>Most Targeted Species</Text>
+  <Text style={styles.profileValue}>{species || 'Not set'}</Text>
+</View>
 
-          <View style={styles.profileRowNoBorder}>
-            <Text style={styles.profileLabel}>Most Targeted Species</Text>
-            <Text style={styles.profileValue}>{species || 'Not set'}</Text>
-          </View>
+<View style={styles.profileRow}>
+  <Text style={styles.profileLabel}>Favorite Technique</Text>
+  <Text style={styles.profileValue}>
+    {technique || 'Not set'}
+  </Text>
+</View>
+
+<View style={styles.profileRowNoBorder}>
+  <Text style={styles.profileLabel}>Boat</Text>
+  <Text style={styles.profileValue}>{boat || 'Not set'}</Text>
+</View>
         </View>
 
         <View style={styles.infoCard}>
@@ -544,25 +550,16 @@ const handleDeleteAccount = () => {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.infoCard}>
-          <Text style={styles.infoTitle}>Your ReelWall</Text>
-          <Text style={styles.infoText}>
-            Build your identity here with a profile photo, name, catches, and curated collections.
-          </Text>
-        
-        <View style={styles.infoCard}>
-
-
+       <View style={styles.infoCard}>
   <TouchableOpacity
-    style={styles.logoutButton}
+    style={styles.logoutPrimary}
     onPress={handleLogout}
     activeOpacity={0.85}
   >
-    <Text style={styles.logoutButtonText}>Log Out</Text>
+    <Ionicons name="log-out-outline" size={16} color="#102C47" />
+    <Text style={styles.logoutPrimaryText}>Log Out</Text>
   </TouchableOpacity>
 </View>
-        
-        </View>
 
         <View style={styles.infoCard}>
   <TouchableOpacity
@@ -599,6 +596,22 @@ const styles = StyleSheet.create({
   headerSpacer: {
     width: 40,
   },
+
+  logoutPrimary: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 6,
+  backgroundColor: '#F2C94C',
+  paddingVertical: 12,
+  borderRadius: 14,
+},
+
+logoutPrimaryText: {
+  color: '#102C47',
+  fontWeight: '800',
+  fontSize: 14,
+},
   editIconButton: {
     width: 40,
     height: 40,
@@ -640,23 +653,35 @@ const styles = StyleSheet.create({
     marginTop: 6,
     marginBottom: 16,
   },
+  infoCard: {
+  backgroundColor: '#102C47',
+  borderRadius: 20,
+  padding: 18,
+  marginBottom: 16,
+  borderWidth: 1,
+  borderColor: 'rgba(255,255,255,0.05)',
+},
   editProfileButton: {
-    backgroundColor: '#F2C94C',
-    paddingVertical: 11,
-    paddingHorizontal: 20,
-    borderRadius: 14,
-  },
-  editProfileButtonText: {
-    color: '#F5F7FA',
-    fontWeight: '700',
-    fontSize: 14,
-  },
-  deleteAccountButton: {
+  flexDirection: 'row',        // 👈 important
+  alignItems: 'center',
+  gap: 6,                      // spacing between icon + text
+  backgroundColor: '#F2C94C',
+  paddingVertical: 6,
+  paddingHorizontal: 12,
+  borderRadius: 999,
   marginTop: 10,
-  backgroundColor: '#2A0F0F',
-  paddingVertical: 11,
-  paddingHorizontal: 20,
-  borderRadius: 14,
+},
+  editProfileButtonText: {
+  color: '#102C47',
+  fontWeight: '700',
+  fontSize: 13,
+},
+  deleteAccountButton: {
+  marginTop: 8,
+  backgroundColor: 'transparent',
+  paddingVertical: 6,
+  paddingHorizontal: 14,
+  borderRadius: 10,
   borderWidth: 1,
   borderColor: 'rgba(255,107,107,0.35)',
   alignItems: 'center',      // ✅ THIS centers horizontally
@@ -665,7 +690,7 @@ const styles = StyleSheet.create({
   deleteAccountButtonText: {
     color: '#FF6B6B',
     fontWeight: '700',
-    fontSize: 14,
+    fontSize: 12,
   },
   statsRow: {
     flexDirection: 'row',
@@ -686,30 +711,23 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '800',
   },
-
-  logoutButton: {
-  marginTop: 10,
-  backgroundColor: '#F2C94C',
-  paddingVertical: 12,
-  borderRadius: 14,
+logoutRow: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
   alignItems: 'center',
+  paddingVertical: 4,
 },
-logoutButtonText: {
-  color: '#102C47',
+
+logoutText: {
+  color: '#A5B3C2',
+  fontSize: 15,
   fontWeight: '700',
-  fontSize: 14,
 },
   statLabel: {
     color: '#A5B3C2',
     fontSize: 12,
     fontWeight: '700',
     marginTop: 4,
-  },
-  infoCard: {
-    backgroundColor: '#102C47',
-    borderRadius: 20,
-    padding: 18,
-    marginBottom: 16,
   },
   infoTitle: {
     color: '#F5F7FA',

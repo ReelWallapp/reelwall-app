@@ -1,10 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Slider from '@react-native-community/slider';
-import { decode } from 'base64-arraybuffer';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import * as FileSystem from 'expo-file-system/legacy';
 import * as Haptics from 'expo-haptics';
+import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
@@ -52,6 +51,7 @@ export default function CaptureScreen() {
   const [showGrid, setShowGrid] = useState(true);
   const [qualityMode, setQualityMode] = useState<CaptureQuality>('high');
   const [zoom, setZoom] = useState(0);
+  const [bulkProgress, setBulkProgress] = useState('');
   const [showZoomPanel, setShowZoomPanel] = useState(false);
   const [showLandscapeTip, setShowLandscapeTip] = useState(false);
   const [timer, setTimer] = useState<CaptureTimer>(0);
@@ -104,27 +104,34 @@ export default function CaptureScreen() {
   };
 
   const normalizeImageForUpload = async (uri: string) => {
-    return uri;
-  };
+  const result = await ImageManipulator.manipulateAsync(
+    uri,
+    [],
+    {
+      compress: 0.95,
+      format: ImageManipulator.SaveFormat.JPEG,
+    }
+  );
+
+  return result.uri;
+};
 
   const uploadImageToSupabase = async (uri: string) => {
   const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
-  const filePath = `public/${fileName}`;
 
-  const base64 = await FileSystem.readAsStringAsync(uri, {
-    encoding: 'base64',
-  });
+  const response = await fetch(uri);
+  const arrayBuffer = await response.arrayBuffer();
 
   const { error: uploadError } = await supabase.storage
     .from('catches')
-    .upload(filePath, decode(base64), {
+    .upload(fileName, arrayBuffer, {
       contentType: 'image/jpeg',
       upsert: false,
     });
 
   if (uploadError) throw uploadError;
 
-  return filePath;
+  return fileName;
 };
 
 
@@ -340,44 +347,55 @@ export default function CaptureScreen() {
   };
 
   const pickImage = async () => {
-    try {
-      if (saving) return;
+  try {
+    if (saving) return;
 
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-      if (!permissionResult.granted) {
-        Alert.alert(
-          'Photo access needed',
-          'Please allow ReelWall to access your photos so you can upload catches.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Open Settings', onPress: () => Linking.openSettings() },
-          ]
-        );
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        quality: qualityValue,
-        allowsEditing: false,
-      });
-
-      if (result.canceled || !result.assets?.[0]?.uri) return;
-
-      setSaving(true);
-      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-      await saveCatch(result.assets[0].uri, 'upload');
-      await finishSuccess();
-    } catch (error: any) {
-      console.log('Upload error:', error);
-      setSaving(false);
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Upload failed', error?.message || 'Please try again.');
+    if (!permissionResult.granted) {
+      Alert.alert(
+        'Photo access needed',
+        'Please allow ReelWall to access your photos so you can upload catches.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Open Settings', onPress: () => Linking.openSettings() },
+        ]
+      );
+      return;
     }
-  };
 
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: qualityValue,
+      allowsEditing: false,
+      allowsMultipleSelection: true,
+      selectionLimit: 20,
+    });
+
+    if (result.canceled || !result.assets?.length) return;
+
+    setSaving(true);
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    for (let i = 0; i < result.assets.length; i++) {
+      const asset = result.assets[i];
+
+      if (!asset.uri) continue;
+
+      setBulkProgress(`Uploading ${i + 1} of ${result.assets.length}...`);
+      await saveCatch(asset.uri, 'upload');
+    }
+
+    setBulkProgress('');
+    await finishSuccess();
+  } catch (error: any) {
+    console.log('Bulk upload error:', error);
+    setSaving(false);
+    setBulkProgress('');
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    Alert.alert('Upload failed', error?.message || 'Please try again.');
+  }
+};
   if (!permission) {
     return <View style={styles.container} />;
   }
@@ -599,7 +617,9 @@ export default function CaptureScreen() {
           <View style={styles.uploadIconCircle}>
             <Ionicons name="images-outline" size={24} color="#0A2540" />
           </View>
-          <Text style={styles.uploadText}>Upload</Text>
+          <Text style={styles.uploadText}>
+  {bulkProgress || 'Upload'}
+</Text>
           <Text style={styles.uploadSubText}>Library</Text>
         </TouchableOpacity>
 

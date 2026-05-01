@@ -178,7 +178,7 @@ async function handleViewOnWeb(collection: CollectionItem) {
   try {
     await WebBrowser.openBrowserAsync(url);
   } catch (error) {
-    console.log('Open browser error:', error);
+    
     Alert.alert('Could not open collection', url);
   }
 }
@@ -196,7 +196,7 @@ async function handleShareCollection(collection: CollectionItem) {
   url,
 });
   } catch (e) {
-    console.log('Share error:', e);
+    
   }
 }
 
@@ -449,33 +449,26 @@ const collectionShareCardRef = useRef<View | null>(null);
 
       const supabaseCatchRows = (allCatchRows || []) as CatchItem[];
 
-      const savedLocal = await AsyncStorage.getItem(STORAGE_KEY);
-      const localItems: LocalCatchItem[] = savedLocal ? JSON.parse(savedLocal) : [];
-      const localCatchRows = localItems.map(mapLocalCatchToRow);
+// ✅ use Supabase only, not AsyncStorage merge
+const catchRows = filterDeletedCatches(supabaseCatchRows, deletedIds);
 
-      const mergedCatchRows = mergeCatchesByIdOrImage(
-        supabaseCatchRows,
-        localCatchRows
-      );
+const validCatchIdSet = new Set(catchRows.map((item) => String(item.id)));
 
-      const catchRows = filterDeletedCatches(mergedCatchRows, deletedIds);
-      const validCatchIdSet = new Set(catchRows.map((item) => String(item.id)));
+const nextCollections = typedCollections.map((collection) => ({
+  ...collection,
+  catchIds: linkRows
+    .filter(
+      (link) =>
+        link.collection_id === collection.id &&
+        validCatchIdSet.has(String(link.catch_id))
+    )
+    .map((link) => String(link.catch_id)),
+}));
 
-      const nextCollections = typedCollections.map((collection) => ({
-        ...collection,
-        catchIds: linkRows
-          .filter(
-            (link) =>
-              link.collection_id === collection.id &&
-              validCatchIdSet.has(String(link.catch_id))
-          )
-          .map((link) => String(link.catch_id)),
-      }));
-
-      setCollections(nextCollections);
-      setCatches(catchRows);
+setCollections(nextCollections);
+setCatches(catchRows);
     } catch (error: any) {
-      console.log('Collections load error:', error);
+      
       Alert.alert('Error', error?.message || 'Could not load collections.');
     } finally {
       setLoading(false);
@@ -518,7 +511,7 @@ const collectionShareCardRef = useRef<View | null>(null);
     ]);
 
     if (error) {
-      console.log('Supabase create error:', error);
+      
       Alert.alert('Error', error.message);
       return;
     }
@@ -561,7 +554,7 @@ const collectionShareCardRef = useRef<View | null>(null);
 
               await loadData();
             } catch (error: any) {
-              console.log('Delete collection error:', error);
+              
               Alert.alert('Error', error?.message || 'Could not delete collection');
             }
           },
@@ -585,7 +578,7 @@ const collectionShareCardRef = useRef<View | null>(null);
       .eq('id', collectionId);
 
     if (error) {
-      console.log('Update cover error:', error);
+      
     }
 
     await loadData();
@@ -610,23 +603,31 @@ const collectionShareCardRef = useRef<View | null>(null);
     ]);
 
     if (error) {
-      console.log('Supabase add catch link error:', error);
+      
       Alert.alert('Error', error.message);
       setSavingCatchId(null);
       return;
     }
 
    if (!collection.cover_image_url && catchItem?.image_url) {
-  const cleanPath = catchItem.image_url.includes('/storage/')
-    ? catchItem.image_url.split('/public/catches/')[1]
-    : catchItem.image_url;
+  if (catchItem.image_url.startsWith('file://')) {
+    await loadData();
+    setSavingCatchId(null);
+    return;
+  }
+
+  const publicUrl = getPublicImageUrl(catchItem.image_url);
+
+  const cleanPath = publicUrl.includes('/public/catches/')
+    ? publicUrl.split('/public/catches/')[1]
+    : publicUrl;
 
   await updateCollectionCoverFromCatch(collectionId, cleanPath);
 } else {
   await loadData();
 }
 
-    setSavingCatchId(null);
+setSavingCatchId(null);
   }
 
   async function removeCatchFromCollection(collectionId: string, catchId: string) {

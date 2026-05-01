@@ -108,7 +108,10 @@ const getImageRatio = (item: CatchItem) => {
   const getPublicImageUrl = (value?: string | null) => {
   if (!value) return '';
 
-  if (value.startsWith('file://')) return '';
+ if (value.startsWith('file://')) {
+  
+  return value; // 👈 allow local images to render
+}
 
   if (value.startsWith('http://') || value.startsWith('https://')) {
     return value;
@@ -438,31 +441,43 @@ const getImageRatio = (item: CatchItem) => {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            try {
-              const userId = await getCurrentUserId();
-              const catchId = String(selectedCatch.id);
+  try {
+    const userId = await getCurrentUserId();
+    const catchId = String(selectedCatch.id);
 
-              const deletedIds = await getDeletedCatchIds();
-              const nextDeletedIds = Array.from(new Set([...deletedIds, catchId]));
-              await saveDeletedCatchIds(nextDeletedIds);
+    // 🔥 NEW: delete image from storage first
+    if (selectedCatch.uri) {
+      const path = selectedCatch.uri
+        .replace(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/storage/v1/object/public/catches/`, '');
 
-              const { error } = await supabase
-                .from('catches')
-                .delete()
-                .eq('id', catchId)
-                .eq('user_id', userId);
+      await supabase.storage
+        .from('catches')
+        .remove([path]);
+    }
 
-              if (error) throw error;
+    // existing logic
+    const deletedIds = await getDeletedCatchIds();
+    const nextDeletedIds = Array.from(new Set([...deletedIds, catchId]));
+    await saveDeletedCatchIds(nextDeletedIds);
 
-              const updated = catches.filter((item) => String(item.id) !== catchId);
-              setCatches(updated);
-              await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-              setSelectedCatch(null);
-            } catch (error: any) {
-              console.log('Delete error:', error);
-              Alert.alert('Delete failed', error?.message || 'Try again');
-            }
-          },
+    const { error } = await supabase
+      .from('catches')
+      .delete()
+      .eq('id', catchId)
+      .eq('user_id', userId);
+
+    if (error) throw error;
+
+    const updated = catches.filter((item) => String(item.id) !== catchId);
+    setCatches(updated);
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    setSelectedCatch(null);
+
+  } catch (error: any) {
+    console.log('Delete error:', error);
+    Alert.alert('Delete failed', error?.message || 'Try again');
+  }
+}
         },
       ]
     );
@@ -539,10 +554,16 @@ const getImageRatio = (item: CatchItem) => {
                   style={styles.featuredCard}
                 >
                   <Image
-                    source={{ uri: latest.uri }}
-                    style={styles.featuredImage}
-                    resizeMode="contain"
-                  />
+  source={{ uri: latest.uri }}
+  style={styles.featuredImage}
+  resizeMode="contain"
+  onError={(e) => {
+    
+  }}
+  onLoad={() => {
+    
+  }}
+/>
                   <View style={styles.featuredOverlay} />
 
                   {renderEditBadge()}
@@ -869,7 +890,7 @@ const getImageRatio = (item: CatchItem) => {
         {shareItem && (
           <ViewShot
             ref={shareCardRef}
-            options={{ format: 'jpg', quality: 0.95 }}
+            options={{ format: 'jpg', quality: 0.85 }}
           >
             <View style={styles.shareCard}>
               <Image
@@ -892,11 +913,11 @@ resizeMode="cover"
                 ) : null}
 
                 <Text style={styles.shareCardNote}>
-                  {shareItem.note?.trim() || 'A catch worth remembering.'}
+                  {shareItem.note?.trim() || 'A fish worth remembering.'}
                 </Text>
 
                 <Text style={styles.shareCardBrand}>
-                  REELWALL • A CATCH WORTH REMEMBERING
+                  REELWALL
                 </Text>
               </View>
             </View>
@@ -1558,9 +1579,13 @@ bottomDeleteButtonText: {
     marginBottom: 12,
   },
   shareCardBrand: {
-    color: '#F2C94C',
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
+  position: 'absolute', // 👈 key
+  bottom: 12,           // 👈 adjust lower/higher
+  right: 16,            // 👈 right side
+  color: '#F2C94C',
+  fontSize: 10,
+  fontWeight: '800',
+  letterSpacing: 1,
+  opacity: 0.9,         // 👈 optional nicer look
+},
 });

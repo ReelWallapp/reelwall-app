@@ -5,13 +5,13 @@ import { router } from 'expo-router';
 
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Alert,
-  Image,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Alert,
+    Image,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ensureProfileExistsAndSyncLocal } from '../../lib/profile-sync';
@@ -474,7 +474,7 @@ const handleDeleteAccount = () => {
           </View>
 
           <Text style={styles.profileName}>{name}</Text>
-          <Text style={styles.profileSub}>Digital Trophy Wall</Text>
+          <Text style={styles.profileSub}>Your ReelWall</Text>
 
           <TouchableOpacity
   style={styles.editProfileButton}
@@ -491,7 +491,7 @@ const handleDeleteAccount = () => {
         <View style={styles.statsRow}>
           <View style={styles.statBox}>
             <Text style={styles.statNumber}>{catchCount}</Text>
-            <Text style={styles.statLabel}>Fish Counter</Text>
+            <Text style={styles.statLabel}>Wall Shots</Text>
           </View>
 
           <View style={styles.statBox}>
@@ -506,7 +506,7 @@ const handleDeleteAccount = () => {
         </View>
 
         <View style={styles.infoCard}>
-          <Text style={styles.infoTitle}>About the Angler</Text>
+          <Text style={styles.infoTitle}>About you the Angler</Text>
 
           <View style={styles.profileRow}>
             <Text style={styles.profileLabel}>Location</Text>
@@ -526,7 +526,7 @@ const handleDeleteAccount = () => {
 </View>
 
 <View style={styles.profileRowNoBorder}>
-  <Text style={styles.profileLabel}>Boat</Text>
+  <Text style={styles.profileLabel}>Boat (if any)</Text>
   <Text style={styles.profileValue}>{boat || 'Not set'}</Text>
 </View>
         </View>

@@ -50,17 +50,29 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: styles.tabBar,
-        tabBarItemStyle: { flex:1,},
+        tabBarItemStyle: styles.tabBarItem,
         tabBarActiveTintColor: '#F2C94C',
         tabBarInactiveTintColor: '#8FA3B8',
-        tabBarLabelStyle: {
-          fontSize: 10,
-          fontWeight: '700',
-        },
+        tabBarLabelStyle: styles.tabBarLabel,
       }}
     >
       <Tabs.Screen
         name="index"
+        options={{
+          title: 'Mounts',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? 'earth' : 'earth-outline'}
+              size={20}
+              color={color}
+              style={styles.tabIcon}
+            />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="wall"
         options={{
           title: 'Wall',
           tabBarIcon: ({ color, focused }) => (
@@ -68,25 +80,12 @@ export default function TabLayout() {
               name={focused ? 'fish' : 'fish-outline'}
               size={20}
               color={color}
+              style={styles.tabIcon}
             />
           ),
         }}
       />
 
-<Tabs.Screen
-        name="collections"
-        options={{
-          title: 'Collections',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? 'albums' : 'albums-outline'}
-              size={20}
-              color={color}
-            />
-          ),
-        }}
-      />
-    
       <Tabs.Screen
         name="capture"
         options={{
@@ -102,14 +101,15 @@ export default function TabLayout() {
       />
 
       <Tabs.Screen
-        name="profile"
+        name="collections"
         options={{
-          title: 'Profile',
+          title: 'Collections',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name={focused ? 'person' : 'person-outline'}
+              name={focused ? 'albums' : 'albums-outline'}
               size={20}
               color={color}
+              style={styles.tabIcon}
             />
           ),
         }}
@@ -124,8 +124,16 @@ export default function TabLayout() {
               name={focused ? 'shield-checkmark' : 'shield-checkmark-outline'}
               size={20}
               color={color}
+              style={styles.tabIcon}
             />
           ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="profile"
+        options={{
+          href: null,
         }}
       />
 
@@ -146,17 +154,32 @@ const styles = StyleSheet.create({
     height: 88,
     paddingBottom: 12,
     paddingTop: 10,
-    paddingHorizontal: 16,
+    paddingHorizontal: 8, // ✅ reduced for better spacing
   },
+
+  tabBarItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  tabBarLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+
   captureWrapper: {
-    top: -26,
+    top: -18,
     justifyContent: 'center',
     alignItems: 'center',
+    width: 76, // gives center button breathing room
   },
+
   captureButton: {
-    width: 74,
-    height: 74,
-    borderRadius: 37,
+    width: 66,
+    height: 66,
+    borderRadius: 33,
     backgroundColor: '#F2C94C',
     justifyContent: 'center',
     alignItems: 'center',
@@ -165,5 +188,9 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
     elevation: 10,
+  },
+
+  tabIcon: {
+    marginBottom: -2,
   },
 });

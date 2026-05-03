@@ -12,7 +12,10 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.reelwall.app",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "ReelWall uses your camera to let you capture fish photos and add them to your private catch wall.",
+        "NSPhotoLibraryUsageDescription": "ReelWall uses your photo library so you can upload existing fish photos, edit catch details, and choose which catches to mount on ReelWall.",
+        "NSPhotoLibraryAddUsageDescription": "ReelWall saves generated share images to your photo library only when you choose to export or share a catch card."
       }
     },
     "android": {

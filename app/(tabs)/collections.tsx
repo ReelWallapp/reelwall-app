@@ -884,7 +884,7 @@ setSavingCatchId(null);
         }
         ListHeaderComponent={
           <View style={styles.header}>
-            <Text style={styles.eyebrow}>COLLECTIONS</Text>
+            <Text style={styles.eyebrow}>COMMUNITY HOLES</Text>
             <Text style={styles.title}>Your Collections</Text>
             <Text style={styles.subtitle}>
               Group your fishing experinces. Build your legacy. Every collection tells a story.
@@ -906,7 +906,7 @@ setSavingCatchId(null);
 
               <View style={styles.pageSummaryCard}>
                 <Text style={styles.pageSummaryNumber}>{catches.length}</Text>
-                <Text style={styles.pageSummaryLabel}>Fish Counter</Text>
+                <Text style={styles.pageSummaryLabel}>Fishing Shots</Text>
               </View>
             </View>
           </View>

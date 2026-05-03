@@ -67,7 +67,7 @@ export default function MountsHomeScreen() {
   const [lastMountedAt, setLastMountedAt] = useState<string | null>(null);
 
   const [showBackToTop, setShowBackToTop] = useState(false);
-
+  const [reactedCatchIds, setReactedCatchIds] = useState<Record<string, boolean>>({});
   const [shareItem, setShareItem] = useState<MountItem | null>(null);
   const shareCardRef = useRef<ViewShot | null>(null);
 
@@ -111,7 +111,18 @@ export default function MountsHomeScreen() {
     listRef.current?.scrollToOffset({ offset: 0, animated: true });
   };
 
-  const loadProfilesForMounts = async (mountedCatches: MountItem[]) => {
+  const getCurrentUserId = async () => {
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
+
+    if (error || !user) throw new Error('User not logged in');
+
+    return user.id;
+  };
+
+  const fetchProfilesForMounts = async (mountedCatches: MountItem[]) => {
     const userIds = [
       ...new Set(
         mountedCatches
@@ -120,30 +131,25 @@ export default function MountsHomeScreen() {
       ),
     ];
 
-    const missingUserIds = userIds.filter((id) => !profiles[id]);
+    if (userIds.length === 0) return {};
 
-    if (missingUserIds.length === 0) return;
-
-    const { data: profilesData, error: profilesError } = await supabase
+    const { data, error } = await supabase
       .from('profiles')
       .select('id, username, display_name, avatar_url')
-      .in('id', missingUserIds);
+      .in('id', userIds);
 
-    if (profilesError) {
-      console.log('Profiles load error:', profilesError);
-      return;
+    if (error) {
+      console.log('Profiles load error:', error);
+      return {};
     }
 
     const profileMap: ProfileMap = {};
 
-    ((profilesData || []) as ProfileItem[]).forEach((profile) => {
+    ((data || []) as ProfileItem[]).forEach((profile) => {
       profileMap[profile.id] = profile;
     });
 
-    setProfiles((prev) => ({
-      ...prev,
-      ...profileMap,
-    }));
+    return profileMap;
   };
 
   const loadMounts = async (reset = true) => {
@@ -184,11 +190,17 @@ export default function MountsHomeScreen() {
 
       const mountedCatches = (mountsData || []) as MountItem[];
 
+      const profileMap = await fetchProfilesForMounts(mountedCatches);
+
       if (reset) {
         setMounts(mountedCatches);
-        setProfiles({});
+        setProfiles(profileMap);
       } else {
         setMounts((prev) => [...prev, ...mountedCatches]);
+        setProfiles((prev) => ({
+          ...prev,
+          ...profileMap,
+        }));
       }
 
       if (mountedCatches.length > 0) {
@@ -198,8 +210,6 @@ export default function MountsHomeScreen() {
       }
 
       setHasMore(mountedCatches.length === PAGE_SIZE);
-
-      await loadProfilesForMounts(mountedCatches);
     } catch (error) {
       console.log('Load mounts error:', error);
 
@@ -258,6 +268,37 @@ export default function MountsHomeScreen() {
 
     return 10;
   };
+
+  const toggleReaction = async (catchId: string) => {
+  try {
+    const userId = await getCurrentUserId();
+    const alreadyReacted = !!reactedCatchIds[catchId];
+
+    setReactedCatchIds((prev) => ({
+      ...prev,
+      [catchId]: !alreadyReacted,
+    }));
+
+    if (alreadyReacted) {
+      await supabase
+        .from('catch_reactions')
+        .delete()
+        .eq('catch_id', catchId)
+        .eq('user_id', userId);
+    } else {
+      await supabase.from('catch_reactions').upsert({
+        catch_id: catchId,
+        user_id: userId,
+        reaction_type: 'nice',
+      });
+    }
+
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  } catch (error: any) {
+    console.log('Reaction error:', error);
+    Alert.alert('Could not react', error?.message || 'Please try again.');
+  }
+};
 
   const shareMount = async (item: MountItem) => {
     try {
@@ -379,18 +420,39 @@ export default function MountsHomeScreen() {
             </Text>
           )}
 
-          <View style={styles.cardFooter}>
-  <View style={styles.mountedFooterRow}>
-    <MaterialIcons name="emoji-events" size={15} color={PRIMARY} />
-    <Text style={styles.mountedFooterText}>Mounted on ReelWall</Text>
-  </View>
+          <View style={styles.cardFooterRow}>
+            <View style={styles.footerLeft}>
+              <View style={styles.mountedFooterRow}>
+                <MaterialIcons name="emoji-events" size={15} color={PRIMARY} />
+                <Text style={styles.mountedFooterText}>Mounted on ReelWall</Text>
+              </View>
 
-  {!!mountedDate && (
-    <Text style={styles.mountedFooterDate}>
-      {`Mounted • ${mountedDate}`}
-    </Text>
-  )}
-</View>
+              {!!mountedDate && (
+                <Text style={styles.mountedFooterDate}>
+                  {`Mounted • ${mountedDate}`}
+                </Text>
+              )}
+            </View>
+
+            <TouchableOpacity
+  style={[
+    styles.niceButton,
+    reactedCatchIds[item.id] && styles.niceButtonActive,
+  ]}
+  onPress={() => toggleReaction(item.id)}
+  activeOpacity={0.8}
+>
+  <Text style={styles.niceButtonEmoji}>👍</Text>
+  <Text
+    style={[
+      styles.niceButtonText,
+      reactedCatchIds[item.id] && styles.niceButtonTextActive,
+    ]}
+  >
+    {reactedCatchIds[item.id] ? 'Nice one ✓' : 'Nice one'}
+  </Text>
+</TouchableOpacity>
+          </View>
         </View>
       </View>
     );
@@ -427,21 +489,20 @@ export default function MountsHomeScreen() {
         ListHeaderComponent={
           <>
             <View style={styles.topHeader}>
-              
-  <View style={styles.profileRow}>
-  <TouchableOpacity
-    style={styles.profileTopButton}
-    onPress={() => router.push('/profile')}
-    activeOpacity={0.8}
-  >
-    <Ionicons
-      name="person-circle-outline"
-      size={26}
-      color={PRIMARY}
-    />
-    <Text style={styles.profileTopLabel}>Profile</Text>
-  </TouchableOpacity>
-</View>
+              <View style={styles.profileRow}>
+                <TouchableOpacity
+                  style={styles.profileTopButton}
+                  onPress={() => router.push('/profile')}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons
+                    name="person-circle-outline"
+                    size={26}
+                    color={PRIMARY}
+                  />
+                  <Text style={styles.profileTopLabel}>Profile</Text>
+                </TouchableOpacity>
+              </View>
 
               <Image
                 source={require('../../assets/logo.png')}
@@ -450,25 +511,23 @@ export default function MountsHomeScreen() {
               />
 
               <Text style={styles.subtitle}>Every Fish Has a Story</Text>
-
-              
             </View>
 
             <View style={styles.flowRow}>
-  <Text style={styles.flowText}>Capture</Text>
-  <Text style={styles.flowArrow}>→</Text>
+              <Text style={styles.flowText}>Capture</Text>
+              <Text style={styles.flowArrow}>→</Text>
 
-  <Text style={styles.flowText}>Choose</Text>
-  <Text style={styles.flowArrow}>→</Text>
+              <Text style={styles.flowText}>Choose</Text>
+              <Text style={styles.flowArrow}>→</Text>
 
-  <Text style={styles.flowTextHighlight}>Mount</Text>
-  <Text style={styles.flowArrow}>→</Text>
+              <Text style={styles.flowTextHighlight}>Mount</Text>
+              <Text style={styles.flowArrow}>→</Text>
 
-  <Text style={styles.flowText}>Share</Text>
-  <Text style={styles.flowArrow}>→</Text>
+              <Text style={styles.flowText}>Share</Text>
+              <Text style={styles.flowArrow}>→</Text>
 
-  <Text style={styles.flowText}>Vault</Text>
-</View>
+              <Text style={styles.flowText}>Vault</Text>
+            </View>
 
             <View style={styles.mountsHeader}>
               <View style={styles.mountsIntroPill}>
@@ -644,31 +703,31 @@ const styles = StyleSheet.create({
   },
 
   topHeader: {
-  alignItems: 'center',
-  marginTop: 4,
-  marginBottom: 0,
-  paddingHorizontal: 22,
-  position: 'relative',
-},
+    alignItems: 'center',
+    marginTop: 4,
+    marginBottom: 0,
+    paddingHorizontal: 22,
+    position: 'relative',
+  },
 
   profileRow: {
-  position: 'absolute',
-  top: 10,
-  right: 18,
-  zIndex: 20,
-  alignItems: 'center',
-},
+    position: 'absolute',
+    top: 10,
+    right: 18,
+    zIndex: 20,
+    alignItems: 'center',
+  },
 
-profileTopButton: {
-  alignItems: 'center',
-},
+  profileTopButton: {
+    alignItems: 'center',
+  },
 
-profileTopLabel: {
-  color: '#8FA3B8',
-  fontSize: 10,
-  fontWeight: '700',
-  marginTop: 1,
-},
+  profileTopLabel: {
+    color: '#8FA3B8',
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: 1,
+  },
 
   logo: {
     width: 150,
@@ -761,6 +820,15 @@ profileTopLabel: {
     textTransform: 'uppercase',
   },
 
+niceButtonActive: {
+  backgroundColor: PRIMARY,
+  borderColor: PRIMARY,
+},
+
+niceButtonTextActive: {
+  color: '#0A2540',
+},
+
   livePill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -787,6 +855,35 @@ profileTopLabel: {
     letterSpacing: 0.5,
   },
 
+  flowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    marginTop: 6,
+    marginBottom: 14,
+    opacity: 0.75,
+  },
+
+  flowText: {
+    color: '#A5B3C2',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  flowTextHighlight: {
+    color: '#F2C94C',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+
+  flowArrow: {
+    color: '#A5B3C2',
+    fontSize: 12,
+    marginHorizontal: 6,
+    opacity: 0.6,
+  },
+
   card: {
     backgroundColor: CARD,
     borderRadius: 24,
@@ -804,34 +901,7 @@ profileTopLabel: {
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-flowRow: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  justifyContent: 'center',
-  flexWrap: 'wrap',
-  marginTop: 6,
-  marginBottom: 14,
-  opacity: 0.75, // keeps it muted
-},
 
-flowText: {
-  color: '#A5B3C2', // MUTED
-  fontSize: 12,
-  fontWeight: '700',
-},
-
-flowTextHighlight: {
-  color: '#F2C94C', // PRIMARY (Mount pops slightly)
-  fontSize: 12,
-  fontWeight: '900',
-},
-
-flowArrow: {
-  color: '#A5B3C2',
-  fontSize: 12,
-  marginHorizontal: 6,
-  opacity: 0.6,
-},
   userBlock: {
     alignItems: 'center',
     maxWidth: 86,
@@ -949,6 +1019,18 @@ flowArrow: {
     marginTop: 14,
   },
 
+  cardFooterRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginTop: 14,
+  },
+
+  footerLeft: {
+    flex: 1,
+    paddingRight: 12,
+  },
+
   mountedFooterRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -966,6 +1048,28 @@ flowArrow: {
     fontSize: 11,
     fontWeight: '700',
     marginTop: 3,
+  },
+
+  niceButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 999,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+
+  niceButtonEmoji: {
+    fontSize: 13,
+    marginRight: 4,
+  },
+
+  niceButtonText: {
+    color: PRIMARY,
+    fontSize: 11,
+    fontWeight: '900',
   },
 
   pbBadge: {

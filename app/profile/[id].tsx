@@ -75,12 +75,14 @@ export default function PublicProfileScreen() {
       .eq('id', id)
       .single();
 
-    if (profileError) {
-      console.log('Public profile load error:', profileError);
-      setProfile(null);
-    } else {
-      setProfile(profileData as ProfileItem);
-    }
+   if (profileError) {
+  console.log('Public profile load error:', profileError);
+  console.log('Trying to load profile for user id:', id);
+  setProfile(null);
+} else {
+  console.log('Loaded public profile:', profileData);
+  setProfile(profileData as ProfileItem);
+}
 
     const { data: mountsData, error: mountsError } = await supabase
       .from('catches')
@@ -99,10 +101,11 @@ export default function PublicProfileScreen() {
   };
 
   useFocusEffect(
-    useCallback(() => {
-      loadProfile();
-    }, [id])
-  );
+  useCallback(() => {
+    if (!id) return;
+    loadProfile();
+  }, [id])
+);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -111,7 +114,9 @@ export default function PublicProfileScreen() {
   };
 
   const displayName =
-    profile?.display_name || profile?.username || 'Angler';
+  profile?.display_name ||
+  profile?.username ||
+  (id ? `Angler ${id.slice(0, 4)}` : 'Angler');
 
   const username = profile?.username ? `@${profile.username}` : '';
 

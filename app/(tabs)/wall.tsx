@@ -59,6 +59,7 @@ export default function Home() {
   const shareCardRef = useRef<ViewShot | null>(null);
 
   const router = useRouter();
+  const [isDemoUser, setIsDemoUser] = useState(false);
 
   const getDeletedCatchIds = async () => {
     try {
@@ -84,6 +85,27 @@ export default function Home() {
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
   };
+
+  const checkIfDemoUser = async () => {
+  try {
+    const userId = await getCurrentUserId();
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('is_demo')
+      .eq('id', userId)
+      .single();
+
+    if (error) {
+      console.log('Demo check error:', error);
+      return;
+    }
+
+    setIsDemoUser(!!data?.is_demo);
+  } catch (error) {
+    console.log('Demo check failed:', error);
+  }
+};
 
   const getPublicImageUrl = (value?: string | null) => {
     if (!value) return '';
@@ -160,11 +182,12 @@ export default function Home() {
       }
     }
   };
-
-  useEffect(() => {
+useFocusEffect(
+  useCallback(() => {
     loadCatches();
-  }, []);
-
+    checkIfDemoUser();
+  }, [])
+);
   useFocusEffect(
     useCallback(() => {
       loadCatches();
@@ -346,28 +369,64 @@ export default function Home() {
   };
 
   const mountCatch = async () => {
-    if (!selectedCatch) return;
+  if (!selectedCatch) return;
 
-    try {
-      const userId = await getCurrentUserId();
+  try {
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-      const { error } = await supabase
-        .from('catches')
-        .update({
-          is_public: true,
-          mounted_at: new Date().toISOString(),
-        })
-        .eq('id', selectedCatch.id)
-        .eq('user_id', userId);
-
-      if (error) throw error;
-
-      Alert.alert('Mounted!', 'Your catch is now on ReelWall.');
-    } catch (error: any) {
-      console.log('Mount error:', error);
-      Alert.alert('Error', error?.message || 'Could not mount catch');
+    if (userError || !user) {
+      Alert.alert('Sign in required', 'Please sign in to mount catches.');
+      return;
     }
-  };
+
+    // ✅ Blocks Supabase anonymous/demo users
+    if ((user as any).is_anonymous) {
+      Alert.alert(
+        'Sign in to Mount',
+        'You can explore ReelWall, but mounting requires an account.'
+      );
+      return;
+    }
+
+    // ✅ Also checks your profiles.is_demo flag
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('is_demo')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError) {
+      console.log('Demo profile check error:', profileError);
+    }
+
+    if (profile?.is_demo) {
+      Alert.alert(
+        'Sign in to Mount',
+        'You can explore ReelWall, but mounting requires an account.'
+      );
+      return;
+    }
+
+    const { error } = await supabase
+      .from('catches')
+      .update({
+        is_public: true,
+        mounted_at: new Date().toISOString(),
+      })
+      .eq('id', selectedCatch.id)
+      .eq('user_id', user.id);
+
+    if (error) throw error;
+
+    Alert.alert('Mounted!', 'Your catch is now on ReelWall.');
+  } catch (error: any) {
+    console.log('Mount error:', error);
+    Alert.alert('Error', error?.message || 'Could not mount catch');
+  }
+};
 
   const deleteCatch = () => {
     if (!selectedCatch) return;
@@ -851,9 +910,18 @@ export default function Home() {
                       </View>
                     </View>
 
-                    <TouchableOpacity style={styles.mountButton} onPress={mountCatch}>
-                      <Text style={styles.mountButtonText}>Mount to ReelWall</Text>
-                    </TouchableOpacity>
+                    <TouchableOpacity
+  style={[
+    styles.mountButton,
+    isDemoUser && { backgroundColor: '#5A6B7D', opacity: 0.6 }
+  ]}
+  onPress={mountCatch}
+  disabled={isDemoUser}
+>
+  <Text style={styles.mountButtonText}>
+    {isDemoUser ? 'Sign in to Mount' : 'Mount to ReelWall'}
+  </Text>
+</TouchableOpacity>
                   </View>
 
                   <View style={styles.dangerZone}>

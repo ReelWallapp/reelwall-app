@@ -346,6 +346,26 @@ export default function CaptureScreen() {
     }
   };
 
+  const requestCameraAccess = async () => {
+  try {
+    const result = await requestPermission();
+
+    if (!result.granted) {
+      Alert.alert(
+        'Camera access needed',
+        'Please allow ReelWall to use your camera in Settings.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Open Settings', onPress: () => Linking.openSettings() },
+        ]
+      );
+    }
+  } catch (error) {
+    console.log('Camera permission error:', error);
+    Alert.alert('Camera error', 'Could not request camera permission.');
+  }
+};
+
   const pickImage = async () => {
   try {
     if (saving) return;
@@ -408,9 +428,9 @@ export default function CaptureScreen() {
           ReelWall needs your camera to capture the moment.
         </Text>
 
-        <TouchableOpacity onPress={requestPermission} style={styles.primaryButton}>
-          <Text style={styles.primaryButtonText}>Allow Camera</Text>
-        </TouchableOpacity>
+        <TouchableOpacity onPress={requestCameraAccess} style={styles.primaryButton}>
+  <Text style={styles.primaryButtonText}>Allow Camera</Text>
+</TouchableOpacity>
 
         <TouchableOpacity onPress={pickImage} style={styles.secondaryButton}>
           <Text style={styles.secondaryButtonText}>Upload Instead</Text>

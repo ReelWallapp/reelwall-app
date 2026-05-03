@@ -31,10 +31,16 @@
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
-    "plugins": [
-      "expo-router",
-      "expo-web-browser"
-    ],
+   "plugins": [
+  "expo-router",
+  "expo-web-browser",
+  [
+    "expo-camera",
+    {
+      "cameraPermission": "ReelWall uses your camera so you can take fishing photos, save them to your wall, and choose which moments to mount on ReelWall."
+    }
+  ]
+],
     "experiments": {
       "typedRoutes": true
     },

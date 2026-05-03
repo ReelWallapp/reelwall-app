@@ -219,7 +219,7 @@ export default function CaptureScreen() {
 
     setTimeout(() => {
       setFlashSuccess(false);
-      router.push('/(tabs)');
+      router.push('/(tabs)/wall');
     }, 900);
   };
 

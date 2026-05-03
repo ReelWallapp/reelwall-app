@@ -21,8 +21,8 @@ export default function LoginScreen() {
   const trimmedEmail = email.trim().toLowerCase();
 
   const sendCode = async () => {
-    if (!trimmedEmail) {
-      Alert.alert('Enter your email');
+    if (!trimmedEmail || !trimmedEmail.includes('@')) {
+      Alert.alert('Enter a valid email');
       return;
     }
 
@@ -41,7 +41,6 @@ export default function LoginScreen() {
       setCodeSent(true);
       Alert.alert('Check your email', 'We have sent you a secure login code.');
     } catch (error: any) {
-      console.log('Send code error:', error);
       Alert.alert('Could not send code', error?.message || 'Please try again');
     } finally {
       setLoading(false);
@@ -56,7 +55,6 @@ export default function LoginScreen() {
 
       if (error) throw error;
     } catch (error: any) {
-      console.log('Demo login error:', error);
       Alert.alert('Demo login failed', error?.message || 'Please try again');
     } finally {
       setLoading(false);
@@ -95,7 +93,6 @@ export default function LoginScreen() {
 
       Alert.alert('Success', 'You are now signed in to ReelWall.');
     } catch (error: any) {
-      console.log('Verify code error:', error);
       Alert.alert('Invalid code', error?.message || 'Please try again');
     } finally {
       setLoading(false);
@@ -143,17 +140,21 @@ export default function LoginScreen() {
                 style={[styles.demoButton, loading && styles.buttonDisabled]}
                 disabled={loading}
               >
-                <Text style={styles.demoButtonText}>Continue as Demo User</Text>
+                <Text style={styles.demoButtonText}>
+                  Explore without an account
+                </Text>
               </TouchableOpacity>
             </>
           ) : (
             <>
               <TextInput
                 value={code}
-                onChangeText={setCode}
+                onChangeText={(value) => setCode(value.replace(/\D/g, ''))}
                 placeholder="email code"
                 placeholderTextColor="#7D8FA3"
                 keyboardType="number-pad"
+                textContentType="oneTimeCode"
+                autoComplete="one-time-code"
                 style={styles.input}
                 editable={!loading}
                 maxLength={8}
@@ -182,7 +183,9 @@ export default function LoginScreen() {
                 style={[styles.demoButton, loading && styles.buttonDisabled]}
                 disabled={loading}
               >
-                <Text style={styles.demoButtonText}>Continue as Demo User</Text>
+                <Text style={styles.demoButtonText}>
+                  Explore without an account
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -199,7 +202,8 @@ export default function LoginScreen() {
           )}
 
           <Text style={styles.helper}>
-            ReelWall will use this email to connect your profile and collections.
+            ReelWall uses your email to connect your profile and collections. Demo
+            mode is temporary and may not save your progress.
           </Text>
         </View>
       </KeyboardAvoidingView>

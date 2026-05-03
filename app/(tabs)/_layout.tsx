@@ -4,6 +4,7 @@ import { Tabs } from 'expo-router';
 import { useRef } from 'react';
 import {
   Animated,
+  Platform,
   StyleSheet,
   TouchableWithoutFeedback,
   View,
@@ -15,6 +16,8 @@ function CaptureTabButton({ children, onPress }: any) {
   const pressIn = () => {
     Animated.spring(scale, {
       toValue: 0.9,
+      friction: 6,
+      tension: 120,
       useNativeDriver: true,
     }).start();
   };
@@ -22,12 +25,17 @@ function CaptureTabButton({ children, onPress }: any) {
   const pressOut = () => {
     Animated.spring(scale, {
       toValue: 1,
+      friction: 6,
+      tension: 120,
       useNativeDriver: true,
     }).start();
   };
 
-  const handlePress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  const handlePress = async () => {
+    try {
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch {}
+
     onPress?.();
   };
 
@@ -36,6 +44,9 @@ function CaptureTabButton({ children, onPress }: any) {
       onPressIn={pressIn}
       onPressOut={pressOut}
       onPress={handlePress}
+      accessibilityRole="button"
+      accessibilityLabel="Capture a moment"
+      accessibilityHint="Opens the camera or upload screen"
     >
       <Animated.View style={[styles.captureWrapper, { transform: [{ scale }] }]}>
         {children}
@@ -62,7 +73,7 @@ export default function TabLayout() {
           title: 'Mounts',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name={focused ? 'earth' : 'earth-outline'}
+              name={focused ? 'trophy' : 'trophy-outline'}
               size={20}
               color={color}
               style={styles.tabIcon}
@@ -77,7 +88,7 @@ export default function TabLayout() {
           title: 'Wall',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name={focused ? 'fish' : 'fish-outline'}
+              name={focused ? 'apps' : 'apps-outline'}
               size={20}
               color={color}
               style={styles.tabIcon}
@@ -106,7 +117,7 @@ export default function TabLayout() {
           title: 'Collections',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name={focused ? 'albums' : 'albums-outline'}
+              name={focused ? 'layers' : 'layers-outline'}
               size={20}
               color={color}
               style={styles.tabIcon}
@@ -151,10 +162,10 @@ const styles = StyleSheet.create({
   tabBar: {
     backgroundColor: '#0B2239',
     borderTopColor: '#163554',
-    height: 88,
-    paddingBottom: 12,
+    height: Platform.OS === 'ios' ? 88 : 78,
+    paddingBottom: Platform.OS === 'ios' ? 12 : 8,
     paddingTop: 10,
-    paddingHorizontal: 8, // ✅ reduced for better spacing
+    paddingHorizontal: 6,
   },
 
   tabBarItem: {
@@ -173,7 +184,7 @@ const styles = StyleSheet.create({
     top: -18,
     justifyContent: 'center',
     alignItems: 'center',
-    width: 76, // gives center button breathing room
+    width: 76,
   },
 
   captureButton: {
@@ -184,7 +195,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#F2C94C',
-    shadowOpacity: 0.6,
+    shadowOpacity: 0.55,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
     elevation: 10,

@@ -2,16 +2,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
-    FlatList,
-    Image,
-    Modal,
-    RefreshControl,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  FlatList,
+  Image,
+  Modal,
+  RefreshControl,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
 
@@ -243,9 +243,9 @@ export default function PublicProfileScreen() {
             </View>
 
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Mounted Catches</Text>
+              <Text style={styles.sectionTitle}>ReelWall</Text>
               <Text style={styles.sectionSubtitle}>
-                Public catches from this angler
+                Their mounted moments
               </Text>
             </View>
           </>

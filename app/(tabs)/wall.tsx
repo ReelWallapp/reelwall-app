@@ -4,27 +4,25 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    Alert,
-    FlatList,
-    Image,
-    Keyboard,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    RefreshControl,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Switch,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  FlatList,
+  Image,
+  Keyboard,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  RefreshControl,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import ViewShot from 'react-native-view-shot';
 import { supabase } from '../../lib/supabase';
-
-type LocationVisibility = 'exact' | 'approximate' | 'hidden';
 
 type CatchItem = {
   id: string;
@@ -42,32 +40,25 @@ type CatchItem = {
   userId?: string;
 };
 
-type PrivacySettings = {
-  profileVisibility: 'public' | 'private';
-  locationVisibility: LocationVisibility;
-};
-
 const STORAGE_KEY = 'reelwall_catches';
-const SETTINGS_KEY = 'reelwall_privacy_settings';
 const DELETED_CATCH_IDS_KEY = 'reelwall_deleted_catch_ids';
 
 export default function Home() {
   const [catches, setCatches] = useState<CatchItem[]>([]);
-  const [imageRatios, setImageRatios] = useState<Record<string, number>>({});
   const [selectedCatch, setSelectedCatch] = useState<CatchItem | null>(null);
+  const [fullscreenCatch, setFullscreenCatch] = useState<CatchItem | null>(null);
+
   const [noteDraft, setNoteDraft] = useState('');
   const [locationDraft, setLocationDraft] = useState('');
   const [dateDraft, setDateDraft] = useState('');
-  const router = useRouter();
+
   const [refreshing, setRefreshing] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [privacySettings, setPrivacySettings] = useState<PrivacySettings>({
-    profileVisibility: 'private',
-    locationVisibility: 'hidden',
-  });
 
   const [shareItem, setShareItem] = useState<CatchItem | null>(null);
   const shareCardRef = useRef<ViewShot | null>(null);
+
+  const router = useRouter();
 
   const getDeletedCatchIds = async () => {
     try {
@@ -77,19 +68,6 @@ export default function Home() {
       return [];
     }
   };
-
-const getImageRatio = (item: CatchItem) => {
-  if (imageRatios[item.id]) return imageRatios[item.id];
-
-  Image.getSize(item.uri, (width, height) => {
-    setImageRatios((prev) => ({
-      ...prev,
-      [item.id]: width / height,
-    }));
-  });
-
-  return 1;
-};
 
   const saveDeletedCatchIds = async (ids: string[]) => {
     await AsyncStorage.setItem(DELETED_CATCH_IDS_KEY, JSON.stringify(ids));
@@ -108,21 +86,18 @@ const getImageRatio = (item: CatchItem) => {
   };
 
   const getPublicImageUrl = (value?: string | null) => {
-  if (!value) return '';
+    if (!value) return '';
 
- if (value.startsWith('file://')) {
-  
-  return value; // 👈 allow local images to render
-}
+    if (value.startsWith('file://')) return value;
 
-  if (value.startsWith('http://') || value.startsWith('https://')) {
-    return value;
-  }
+    if (value.startsWith('http://') || value.startsWith('https://')) {
+      return value;
+    }
 
-  const cleanPath = value.replace(/^\/+/, '').replace(/^catches\//, '');
+    const cleanPath = value.replace(/^\/+/, '').replace(/^catches\//, '');
 
-  return `${process.env.EXPO_PUBLIC_SUPABASE_URL}/storage/v1/object/public/catches/${cleanPath}`;
-};
+    return `${process.env.EXPO_PUBLIC_SUPABASE_URL}/storage/v1/object/public/catches/${cleanPath}`;
+  };
 
   const mapRowToCatch = (item: any): CatchItem => ({
     id: String(item.id),
@@ -135,7 +110,7 @@ const getImageRatio = (item: CatchItem) => {
     weatherDescription: item.weather_description || undefined,
     note: item.note || '',
     isPersonalBest: item.is_personal_best ?? false,
-    isVaulted: item.is_vaulted ?? item.is_personal_best ?? false,
+    isVaulted: item.is_vaulted ?? false,
     source: item.source || 'camera',
     userId: item.user_id || undefined,
   });
@@ -146,9 +121,7 @@ const getImageRatio = (item: CatchItem) => {
       error,
     } = await supabase.auth.getUser();
 
-    if (error || !user) {
-      throw new Error('User not logged in');
-    }
+    if (error || !user) throw new Error('User not logged in');
 
     return user.id;
   };
@@ -188,26 +161,13 @@ const getImageRatio = (item: CatchItem) => {
     }
   };
 
-  const loadSettings = async () => {
-    try {
-      const saved = await AsyncStorage.getItem(SETTINGS_KEY);
-      if (saved) {
-        setPrivacySettings(JSON.parse(saved));
-      }
-    } catch (error) {
-      console.log('Load settings error:', error);
-    }
-  };
-
   useEffect(() => {
     loadCatches();
-    loadSettings();
   }, []);
 
   useFocusEffect(
     useCallback(() => {
       loadCatches();
-      loadSettings();
     }, [])
   );
 
@@ -225,25 +185,14 @@ const getImageRatio = (item: CatchItem) => {
     }
   }, [selectedCatch]);
 
-  const [fullscreenCatch, setFullscreenCatch] = useState<CatchItem | null>(null);
-
   const onRefresh = async () => {
     try {
       setRefreshing(true);
       await loadCatches();
-      await loadSettings();
     } finally {
       setRefreshing(false);
     }
   };
-
-  const openFullscreenCatch = (item: CatchItem) => {
-  setFullscreenCatch(item);
-};
-
-const closeFullscreenCatch = () => {
-  setFullscreenCatch(null);
-};
 
   const normalizeLocationText = (value?: string) => {
     if (!value) return '';
@@ -254,51 +203,19 @@ const closeFullscreenCatch = () => {
       .join(', ');
   };
 
-  const getApproximateLocation = (item: CatchItem) => {
-    const normalizedRegion = normalizeLocationText(item.regionName);
-    if (normalizedRegion) return normalizedRegion;
-
-    const normalizedPlace = normalizeLocationText(item.placeName);
-    if (!normalizedPlace) return '';
-
-    const parts = normalizedPlace
-      .split(',')
-      .map((part) => part.trim())
-      .filter(Boolean);
-
-    return parts.length > 1 ? parts[parts.length - 1] : normalizedPlace;
-  };
-
-  
-
   const getDisplayedLocation = (item: CatchItem) => {
-    if (privacySettings.locationVisibility === 'hidden') {
-      return '';
-    }
-
-    if (privacySettings.locationVisibility === 'approximate') {
-      return getApproximateLocation(item);
-    }
-
-    return normalizeLocationText(item.placeName);
+    return normalizeLocationText(item.placeName || item.regionName);
   };
 
   const getDisplayedWeather = (item: CatchItem) => {
-    if (item.source === 'upload') {
-      return '';
-    }
+    if (item.source === 'upload') return '';
 
     if (item.weatherTemp !== undefined && item.weatherDescription) {
       return `${item.weatherTemp}°C • ${item.weatherDescription}`;
     }
 
-    if (item.weatherTemp !== undefined) {
-      return `${item.weatherTemp}°C`;
-    }
-
-    if (item.weatherDescription) {
-      return item.weatherDescription;
-    }
+    if (item.weatherTemp !== undefined) return `${item.weatherTemp}°C`;
+    if (item.weatherDescription) return item.weatherDescription;
 
     return '';
   };
@@ -308,9 +225,7 @@ const closeFullscreenCatch = () => {
 
     try {
       const d = new Date(item.catchDate);
-      if (Number.isNaN(d.getTime())) {
-        return item.catchDate;
-      }
+      if (Number.isNaN(d.getTime())) return item.catchDate;
 
       return d.toLocaleDateString(undefined, {
         year: 'numeric',
@@ -354,14 +269,6 @@ const closeFullscreenCatch = () => {
     }
   };
 
-  const openCatch = (item: CatchItem) => {
-    setSelectedCatch(item);
-  };
-
-  const closeCatch = () => {
-    setSelectedCatch(null);
-  };
-
   const saveAll = async () => {
     if (!selectedCatch) return;
 
@@ -398,10 +305,7 @@ const closeFullscreenCatch = () => {
 
       setTimeout(() => {
         setSaveSuccess(true);
-
-        setTimeout(() => {
-          setSaveSuccess(false);
-        }, 3000);
+        setTimeout(() => setSaveSuccess(false), 3000);
       }, 100);
     } catch (error) {
       console.log('Save all error:', error);
@@ -441,96 +345,89 @@ const closeFullscreenCatch = () => {
     }
   };
 
-const mountCatch = async () => {
-  if (!selectedCatch) return;
+  const mountCatch = async () => {
+    if (!selectedCatch) return;
 
-  try {
-    const userId = await getCurrentUserId();
+    try {
+      const userId = await getCurrentUserId();
 
-    const { error } = await supabase
-      .from('catches')
-      .update({
-        is_public: true,
-        mounted_at: new Date().toISOString(),
-      })
-      .eq('id', selectedCatch.id)
-      .eq('user_id', userId);
+      const { error } = await supabase
+        .from('catches')
+        .update({
+          is_public: true,
+          mounted_at: new Date().toISOString(),
+        })
+        .eq('id', selectedCatch.id)
+        .eq('user_id', userId);
 
-    if (error) throw error;
+      if (error) throw error;
 
-    Alert.alert('Mounted!', 'Your catch is now on ReelWall.');
-  } catch (error: any) {
-    console.log('Mount error:', error);
-    Alert.alert('Error', error?.message || 'Could not mount catch');
-  }
-};
+      Alert.alert('Mounted!', 'Your catch is now on ReelWall.');
+    } catch (error: any) {
+      console.log('Mount error:', error);
+      Alert.alert('Error', error?.message || 'Could not mount catch');
+    }
+  };
 
   const deleteCatch = () => {
     if (!selectedCatch) return;
 
-    Alert.alert(
-      'Delete catch from wall?',
-      'This will remove this catch from your wall.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-  try {
-    const userId = await getCurrentUserId();
-    const catchId = String(selectedCatch.id);
+    Alert.alert('Delete catch?', 'This will remove this catch from your wall.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const userId = await getCurrentUserId();
+            const catchId = String(selectedCatch.id);
 
-    // 🔥 NEW: delete image from storage first
-    if (selectedCatch.uri) {
-      const path = selectedCatch.uri
-        .replace(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/storage/v1/object/public/catches/`, '');
+            if (selectedCatch.uri) {
+              const path = selectedCatch.uri.replace(
+                `${process.env.EXPO_PUBLIC_SUPABASE_URL}/storage/v1/object/public/catches/`,
+                ''
+              );
 
-      await supabase.storage
-        .from('catches')
-        .remove([path]);
-    }
+              await supabase.storage.from('catches').remove([path]);
+            }
 
-    // existing logic
-    const deletedIds = await getDeletedCatchIds();
-    const nextDeletedIds = Array.from(new Set([...deletedIds, catchId]));
-    await saveDeletedCatchIds(nextDeletedIds);
+            const deletedIds = await getDeletedCatchIds();
+            const nextDeletedIds = Array.from(new Set([...deletedIds, catchId]));
+            await saveDeletedCatchIds(nextDeletedIds);
 
-    const { error } = await supabase
-      .from('catches')
-      .delete()
-      .eq('id', catchId)
-      .eq('user_id', userId);
+            const { error } = await supabase
+              .from('catches')
+              .delete()
+              .eq('id', catchId)
+              .eq('user_id', userId);
 
-    if (error) throw error;
+            if (error) throw error;
 
-    const updated = catches.filter((item) => String(item.id) !== catchId);
-    setCatches(updated);
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    setSelectedCatch(null);
-
-  } catch (error: any) {
-    console.log('Delete error:', error);
-    Alert.alert('Delete failed', error?.message || 'Try again');
-  }
-}
+            const updated = catches.filter((item) => String(item.id) !== catchId);
+            setCatches(updated);
+            await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+            setSelectedCatch(null);
+          } catch (error: any) {
+            console.log('Delete error:', error);
+            Alert.alert('Delete failed', error?.message || 'Try again');
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
-const renderEditBadge = (item: CatchItem) => (
-  <TouchableOpacity
-    style={styles.editButton}
-    onPress={(e) => {
-      e.stopPropagation();
-      openCatch(item);
-    }}
-    activeOpacity={0.85}
-  >
-    <Text style={styles.editText}>Edit</Text>
-  </TouchableOpacity>
-);
+  const renderEditBadge = (item: CatchItem) => (
+    <TouchableOpacity
+      style={styles.editButton}
+      onPress={(e) => {
+        e.stopPropagation();
+        setSelectedCatch(item);
+      }}
+      activeOpacity={0.85}
+    >
+      <Text style={styles.editText}>Edit</Text>
+    </TouchableOpacity>
+  );
 
   const latest = catches[0];
   const rest = catches.slice(1);
@@ -542,31 +439,41 @@ const renderEditBadge = (item: CatchItem) => (
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         showsVerticalScrollIndicator={false}
       >
-        
-
         <View style={styles.wallHeader}>
-  <View style={styles.profileRow}>
-    <Ionicons
-      name="person-circle-outline"
-      size={28}
-      color="#F2C94C"
-      onPress={() => router.push('/profile')}
-    />
-  </View>
+          <View style={styles.profileRow}>
+            <Ionicons
+              name="person-circle-outline"
+              size={28}
+              color="#F2C94C"
+              onPress={() => router.push('/profile')}
+            />
+          </View>
 
-  <Text style={styles.wallEyebrow}>PRIVATE</Text>
-<Text style={styles.wallTitle}>Your Catches</Text>
-<Text style={styles.wallSubtitle}>
-  Edit, refine, and mount when ready
-</Text>
-</View>
+          <Text style={styles.wallEyebrow}>WORKING WALL</Text>
+          <Text style={styles.wallTitle}>Your Catch Wall</Text>
+          <Text style={styles.wallSubtitle}>
+            Capture, edit, add the story, organize, and choose what earns a spot on ReelWall.
+          </Text>
+
+          <View style={styles.wallFlowRow}>
+            <Text style={styles.wallFlowText}>Capture</Text>
+            <Text style={styles.wallFlowArrow}>→</Text>
+            <Text style={styles.wallFlowText}>Edit</Text>
+            <Text style={styles.wallFlowArrow}>→</Text>
+            <Text style={styles.wallFlowText}>Collect</Text>
+            <Text style={styles.wallFlowArrow}>→</Text>
+            <Text style={styles.wallFlowHighlight}>Mount</Text>
+            <Text style={styles.wallFlowArrow}>→</Text>
+            <Text style={styles.wallFlowText}>Vault</Text>
+          </View>
+        </View>
 
         {catches.length === 0 ? (
           <View style={styles.emptyWrap}>
             <View style={styles.placeholder}>
-              <Text style={styles.placeholderTitle}>No bites yet</Text>
+              <Text style={styles.placeholderTitle}>No catches yet</Text>
               <Text style={styles.placeholderText}>
-                Use the camera or upload to add your first memory.
+                Capture or upload your first catch. Add the story, then mount it when it is ready.
               </Text>
             </View>
           </View>
@@ -575,35 +482,29 @@ const renderEditBadge = (item: CatchItem) => (
             {latest && (
               <View style={styles.section}>
                 <View style={styles.headerDivider} />
-                <Text style={styles.sectionTitle}>Last Cast</Text>
+                <Text style={styles.sectionTitle}>Latest Catch</Text>
 
                 <TouchableOpacity
                   activeOpacity={0.9}
-                  onPress={() => openFullscreenCatch(latest)}
+                  onPress={() => setFullscreenCatch(latest)}
                   style={styles.featuredCard}
                 >
                   <Image
-  source={{ uri: latest.uri }}
-  style={styles.featuredImage}
-  resizeMode="contain"
-  onError={(e) => {
-    
-  }}
-  onLoad={() => {
-    
-  }}
-/>
+                    source={{ uri: latest.uri }}
+                    style={styles.featuredImage}
+                    resizeMode="contain"
+                  />
                   <View style={styles.featuredOverlay} />
 
                   {renderEditBadge(latest)}
 
                   <TouchableOpacity
-                  style={styles.shareButton}
+                    style={styles.shareButton}
                     onPress={(e) => {
-    e.stopPropagation();
-    shareCatch(latest);
-  }}
->
+                      e.stopPropagation();
+                      shareCatch(latest);
+                    }}
+                  >
                     <Text style={styles.shareIcon}>↗</Text>
                   </TouchableOpacity>
 
@@ -614,8 +515,6 @@ const renderEditBadge = (item: CatchItem) => (
                         <Text style={styles.featuredPbText}>Personal Best</Text>
                       </View>
                     )}
-
-
 
                     {latest.isVaulted && (
                       <View style={styles.vaultBadge}>
@@ -650,7 +549,7 @@ const renderEditBadge = (item: CatchItem) => (
 
             {rest.length > 0 && (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Your ReelWall</Text>
+                <Text style={styles.sectionTitle}>Catch Library</Text>
 
                 <FlatList
                   data={rest}
@@ -662,26 +561,26 @@ const renderEditBadge = (item: CatchItem) => (
                   renderItem={({ item }) => (
                     <TouchableOpacity
                       style={styles.card}
-                      onPress={() => openFullscreenCatch(item)}
+                      onPress={() => setFullscreenCatch(item)}
                       activeOpacity={0.9}
                     >
                       <View style={styles.imageWrap}>
                         <Image
-  source={{ uri: item.uri }}
-  style={styles.gridImage}
-  resizeMode="cover"
-/>
+                          source={{ uri: item.uri }}
+                          style={styles.gridImage}
+                          resizeMode="cover"
+                        />
                         <View style={styles.imageOverlay} />
 
                         {renderEditBadge(item)}
 
                         <TouchableOpacity
-  style={styles.shareButton}
-  onPress={(e) => {
-    e.stopPropagation();
-    shareCatch(item);
-  }}
->
+                          style={styles.shareButton}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            shareCatch(item);
+                          }}
+                        >
                           <Text style={styles.shareIcon}>↗</Text>
                         </TouchableOpacity>
 
@@ -733,66 +632,63 @@ const renderEditBadge = (item: CatchItem) => (
       </ScrollView>
 
       <Modal visible={!!fullscreenCatch} animationType="fade" transparent>
-  <View style={styles.fullscreenWrap}>
-    <TouchableOpacity
-      style={styles.fullscreenClose}
-      onPress={closeFullscreenCatch}
-    >
-      <Text style={styles.fullscreenCloseText}>Close</Text>
-    </TouchableOpacity>
+        <View style={styles.fullscreenWrap}>
+          <TouchableOpacity style={styles.fullscreenClose} onPress={() => setFullscreenCatch(null)}>
+            <Text style={styles.fullscreenCloseText}>Close</Text>
+          </TouchableOpacity>
 
-    {fullscreenCatch && (
-      <ScrollView
-        style={styles.fullscreenZoomScroll}
-        contentContainerStyle={styles.fullscreenZoomContent}
-        maximumZoomScale={4}
-        minimumZoomScale={1}
-        bouncesZoom
-        pinchGestureEnabled
-        showsHorizontalScrollIndicator={false}
-        showsVerticalScrollIndicator={false}
-        centerContent
-      >
-        <Image
-          source={{ uri: fullscreenCatch.uri }}
-          style={styles.fullscreenImage}
-          resizeMode="contain"
-        />
-      </ScrollView>
-    )}
-  </View>
-</Modal>
+          {fullscreenCatch && (
+            <ScrollView
+              style={styles.fullscreenZoomScroll}
+              contentContainerStyle={styles.fullscreenZoomContent}
+              maximumZoomScale={4}
+              minimumZoomScale={1}
+              bouncesZoom
+              pinchGestureEnabled
+              showsHorizontalScrollIndicator={false}
+              showsVerticalScrollIndicator={false}
+              centerContent
+            >
+              <Image
+                source={{ uri: fullscreenCatch.uri }}
+                style={styles.fullscreenImage}
+                resizeMode="contain"
+              />
+            </ScrollView>
+          )}
+        </View>
+      </Modal>
 
       <Modal visible={!!selectedCatch} animationType="slide" presentationStyle="fullScreen">
         <SafeAreaView style={styles.detailContainer}>
           {selectedCatch && (
-           <KeyboardAvoidingView
-  style={styles.detailFlex}
-  behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-  keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 20}
->
+            <KeyboardAvoidingView
+              style={styles.detailFlex}
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 20}
+            >
               <View style={styles.detailFlex}>
-               <View style={styles.detailHeader}>
-  <Text style={styles.detailTitle}>Fish Details</Text>
+                <View style={styles.detailHeader}>
+                  <Text style={styles.detailTitle}>Catch Details</Text>
 
-  <View style={styles.detailHeaderActions}>
-    <TouchableOpacity
-      style={[
-        styles.headerSaveButton,
-        saveSuccess && styles.headerSaveButtonSaved,
-      ]}
-      onPress={saveAll}
-    >
-      <Text style={styles.headerSaveButtonText}>
-        {saveSuccess ? 'Saved ✓' : 'Save'}
-      </Text>
-    </TouchableOpacity>
+                  <View style={styles.detailHeaderActions}>
+                    <TouchableOpacity
+                      style={[
+                        styles.headerSaveButton,
+                        saveSuccess && styles.headerSaveButtonSaved,
+                      ]}
+                      onPress={saveAll}
+                    >
+                      <Text style={styles.headerSaveButtonText}>
+                        {saveSuccess ? 'Saved ✓' : 'Save'}
+                      </Text>
+                    </TouchableOpacity>
 
-    <TouchableOpacity style={styles.closeDetailButton} onPress={closeCatch}>
-      <Text style={styles.closeDetailText}>Close</Text>
-    </TouchableOpacity>
-  </View>
-</View>
+                    <TouchableOpacity style={styles.closeDetailButton} onPress={() => setSelectedCatch(null)}>
+                      <Text style={styles.closeDetailText}>Close</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
 
                 <ScrollView
                   style={styles.detailFlex}
@@ -832,26 +728,26 @@ const renderEditBadge = (item: CatchItem) => (
                   </View>
 
                   <View style={styles.editCard}>
-                    <Text style={styles.editSectionTitle}>Details</Text>
+                    <Text style={styles.editSectionTitle}>Edit Catch</Text>
 
                     <Text style={styles.inputLabel}>Date</Text>
                     <TextInput
-  value={dateDraft}
-  onChangeText={(text) => {
-    setDateDraft(text);
-    if (saveSuccess) setSaveSuccess(false);
-  }}
-  placeholder="Add date (optional)"
-  placeholderTextColor="#7D8FA3"
-  style={styles.metaInput}
-  autoCapitalize="none"
-  autoCorrect={false}
-  spellCheck={false}
-  editable
-  returnKeyType="done"
-  blurOnSubmit
-  keyboardAppearance="dark"
-/>
+                      value={dateDraft}
+                      onChangeText={(text) => {
+                        setDateDraft(text);
+                        if (saveSuccess) setSaveSuccess(false);
+                      }}
+                      placeholder="Add date (optional)"
+                      placeholderTextColor="#7D8FA3"
+                      style={styles.metaInput}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      spellCheck={false}
+                      editable
+                      returnKeyType="done"
+                      blurOnSubmit
+                      keyboardAppearance="dark"
+                    />
 
                     <TouchableOpacity
                       onPress={() => {
@@ -865,7 +761,7 @@ const renderEditBadge = (item: CatchItem) => (
                     </TouchableOpacity>
 
                     <Text style={styles.inputHelper}>
-                      Add a date only if you want it shown on the wall.
+                      Add a date only if you want it shown on your wall.
                     </Text>
 
                     <Text style={styles.inputLabel}>Location</Text>
@@ -888,26 +784,24 @@ const renderEditBadge = (item: CatchItem) => (
 
                     <Text style={styles.inputLabel}>Story / Note</Text>
                     <TextInput
-  value={noteDraft}
-  onChangeText={(text) => {
-    setNoteDraft(text);
-    if (saveSuccess) setSaveSuccess(false);
-  }}
-  placeholder="Tell the story..."
-  placeholderTextColor="#7D8FA3"
-  multiline
-  style={styles.noteInput}
-  editable
-  autoCorrect={false}
-  spellCheck={false}
-  autoComplete="off"
-  textContentType="none"
-  importantForAutofill="no"
-  keyboardAppearance="dark"
-
-/>
-
-             </View>       
+                      value={noteDraft}
+                      onChangeText={(text) => {
+                        setNoteDraft(text);
+                        if (saveSuccess) setSaveSuccess(false);
+                      }}
+                      placeholder="Tell the story..."
+                      placeholderTextColor="#7D8FA3"
+                      multiline
+                      style={styles.noteInput}
+                      editable
+                      autoCorrect={false}
+                      spellCheck={false}
+                      autoComplete="off"
+                      textContentType="none"
+                      importantForAutofill="no"
+                      keyboardAppearance="dark"
+                    />
+                  </View>
 
                   {saveSuccess && (
                     <Text style={styles.saveSuccessText}>
@@ -929,7 +823,7 @@ const renderEditBadge = (item: CatchItem) => (
                         </View>
 
                         <Text style={styles.pbSubtitle}>
-                          Highlight this catch as one of your standout moments on ReelWall.
+                          Mark this as one of your standout catches.
                         </Text>
                       </View>
 
@@ -942,18 +836,33 @@ const renderEditBadge = (item: CatchItem) => (
                       />
                     </View>
                   </View>
-                  {/* MOUNT BUTTON */}
-<TouchableOpacity
-  style={styles.mountButton}
-  onPress={mountCatch}
->
-  <Text style={styles.mountButtonText}>Mount to ReelWall</Text>
-</TouchableOpacity>
 
-{/* DELETE BUTTON */}
-<TouchableOpacity style={styles.bottomDeleteButton} onPress={deleteCatch}>
-  <Text style={styles.bottomDeleteButtonText}>Delete Catch</Text>
-</TouchableOpacity>
+                  <View style={styles.mountActionCard}>
+                    <View style={styles.mountActionHeader}>
+                      <View style={styles.mountIconCircle}>
+                        <Ionicons name="trophy" size={20} color="#0A2540" />
+                      </View>
+
+                      <View style={styles.mountActionCopy}>
+                        <Text style={styles.mountActionTitle}>Ready for the wall?</Text>
+                        <Text style={styles.mountActionText}>
+                          Share this catch to ReelWall as a mounted trophy.
+                        </Text>
+                      </View>
+                    </View>
+
+                    <TouchableOpacity style={styles.mountButton} onPress={mountCatch}>
+                      <Text style={styles.mountButtonText}>Mount to ReelWall</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.dangerZone}>
+                    <Text style={styles.dangerZoneLabel}>CATCH & RELEASE</Text>
+
+                    <TouchableOpacity style={styles.bottomDeleteButton} onPress={deleteCatch}>
+                      <Text style={styles.bottomDeleteButtonText}>Delete Catch</Text>
+                    </TouchableOpacity>
+                  </View>
                 </ScrollView>
               </View>
             </KeyboardAvoidingView>
@@ -963,22 +872,17 @@ const renderEditBadge = (item: CatchItem) => (
 
       <View style={styles.hiddenShareWrap} pointerEvents="none">
         {shareItem && (
-          <ViewShot
-            ref={shareCardRef}
-            options={{ format: 'jpg', quality: 0.85 }}
-          >
+          <ViewShot ref={shareCardRef} options={{ format: 'jpg', quality: 0.85 }}>
             <View style={styles.shareCard}>
               <Image
-  source={{ uri: shareItem.uri }}
-  style={styles.shareCardImage}
-resizeMode="cover"
-/>
+                source={{ uri: shareItem.uri }}
+                style={styles.shareCardImage}
+                resizeMode="cover"
+              />
 
               <View style={styles.shareCardMeta}>
                 {getDisplayedDate(shareItem) ? (
-                  <Text style={styles.shareCardDate}>
-                    {getDisplayedDate(shareItem)}
-                  </Text>
+                  <Text style={styles.shareCardDate}>{getDisplayedDate(shareItem)}</Text>
                 ) : null}
 
                 {getDisplayedLocation(shareItem) ? (
@@ -991,9 +895,7 @@ resizeMode="cover"
                   {shareItem.note?.trim() || 'A fish worth remembering.'}
                 </Text>
 
-                <Text style={styles.shareCardBrand}>
-                  REELWALL
-                </Text>
+                <Text style={styles.shareCardBrand}>REELWALL</Text>
               </View>
             </View>
           </ViewShot>
@@ -1004,153 +906,67 @@ resizeMode="cover"
 }
 
 const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#081E33' },
+  detailFlex: { flex: 1 },
+  scrollContent: { paddingBottom: 40 },
+
   wallHeader: {
-  paddingHorizontal: 20,
-  paddingTop: 18,
-  paddingBottom: 18,
-},
-
-wallEyebrow: {
-  color: '#F2C94C',
-  fontSize: 12,
-  fontWeight: '900',
-  letterSpacing: 1.6,
-  marginBottom: 6,
-},
-
-wallTitle: {
-  color: '#F5F7FA',
-  fontSize: 30,
-  fontWeight: '900',
-},
-
-wallSubtitle: {
-  color: '#A5B3C2',
-  fontSize: 14,
-  fontWeight: '600',
-  lineHeight: 20,
-  marginTop: 6,
-},
-  
-  
-    detailFlex: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    backgroundColor: '#081E33',
-  },
-  fullscreenWrap: {
-  flex: 1,
-  backgroundColor: '#081E33', // app blue
-},
-mountButton: {
-  backgroundColor: '#F2C94C',
-  paddingVertical: 14,
-  borderRadius: 16,
-  alignItems: 'center',
-  marginTop: 10,
-},
-
-mountButtonText: {
-  color: '#0A2540',
-  fontWeight: '900',
-  fontSize: 15,
-},
-fullscreenZoomScroll: {
-  flex: 1,
-  backgroundColor: '#081E33',
-},
-
-fullscreenZoomContent: {
-  flexGrow: 1,
-  justifyContent: 'center',
-  alignItems: 'center',
-  backgroundColor: '#081E33',
-},
-
-fullscreenImage: {
-  width: '100%',
-  height: '100%',
-},
-
-fullscreenClose: {
-  position: 'absolute',
-  top: 54,
-  right: 20,
-  zIndex: 10,
-  backgroundColor: 'rgba(8,30,51,0.85)',
-  borderRadius: 999,
-  paddingVertical: 10,
-  paddingHorizontal: 14,
-  borderWidth: 1,
-  borderColor: 'rgba(242,201,76,0.45)',
-},
-
-fullscreenCloseText: {
-  color: '#F5F7FA',
-  fontWeight: '800',
-},
-  scrollContent: {
-    paddingBottom: 40,
-  },
-  topHeader: {
-    alignItems: 'center',
-    marginTop: 12,
-    marginBottom: 16,
     paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 20,
   },
-  logo: {
-    width: 220,
-    height: 220,
-    alignSelf: 'center',
-    marginBottom: 4,
-  },
-  eyebrow: {
+  wallEyebrow: {
     color: '#F2C94C',
-    fontSize: 16,
+    fontSize: 11,
     fontWeight: '900',
-    letterSpacing: 2,
-    marginBottom: 4,
-    opacity: 0.9,
+    letterSpacing: 1.7,
+    marginBottom: 7,
   },
-  profileRow: {
-  width: '100%',
-  flexDirection: 'row',
-  justifyContent: 'flex-end',
-  marginBottom: 6,
-},
-  subtitle: {
-    fontSize: 15,
+  wallTitle: {
+    color: '#F5F7FA',
+    fontSize: 32,
+    fontWeight: '900',
+    letterSpacing: -0.4,
+  },
+  wallSubtitle: {
     color: '#A5B3C2',
-    textAlign: 'center',
+    fontSize: 14,
     fontWeight: '600',
-    marginTop: 10,
+    lineHeight: 21,
+    marginTop: 8,
+  },
+  wallFlowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    marginTop: 14,
+    opacity: 0.85,
+  },
+  wallFlowText: {
+    color: '#A5B3C2',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  wallFlowHighlight: {
+    color: '#F2C94C',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  wallFlowArrow: {
+    color: '#A5B3C2',
+    fontSize: 12,
+    marginHorizontal: 6,
+    opacity: 0.55,
+  },
+
+  profileRow: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
     marginBottom: 6,
   },
-  statusRow: {
-    marginTop: 6,
-    opacity: 0.85,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    justifyContent: 'center',
-  },
-  statusPill: {
-    backgroundColor: '#12314F',
-    borderRadius: 999,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-  },
-  statusPillText: {
-    color: '#D7DEE6',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  section: {
-    marginTop: 0,
-    marginBottom: 12,
-  },
+
+  section: { marginTop: 0, marginBottom: 12 },
   sectionTitle: {
     color: '#F5F7FA',
     fontSize: 20,
@@ -1158,64 +974,15 @@ fullscreenCloseText: {
     marginBottom: 12,
     paddingHorizontal: 20,
   },
-  emptyWrap: {
-    flex: 1,
-    paddingHorizontal: 20,
+  headerDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    marginHorizontal: 40,
+    marginTop: 8,
+    marginBottom: 6,
   },
-  headerSaveButton: {
-  backgroundColor: '#F2C94C',
-  paddingVertical: 10,
-  paddingHorizontal: 16,
-  borderRadius: 14,
-},
 
-
-statLabel: {
-  color: '#F5F7FA',
-  fontSize: 14,
-  fontWeight: '700',
-  marginRight: 8,
-},
-headerDivider: {
-  height: 1,
-  backgroundColor: 'rgba(255,255,255,0.06)',
-  marginHorizontal: 40,
-  marginTop: 8,
-  marginBottom: 6,
-},
-statDivider: {
-  color: '#4F6B85',
-  marginHorizontal: 6,
-},
-
-statSub: {
-  color: '#A5B3C2',
-  fontSize: 13,
-  fontWeight: '600',
-},
-headerSaveButtonSaved: {
-  backgroundColor: '#2ECC71',
-},
-
-headerSaveButtonText: {
-  color: '#0A2540',
-  fontWeight: '800',
-},
-
-bottomDeleteButton: {
-  backgroundColor: '#5A1F1F',
-  paddingVertical: 14,
-  borderRadius: 16,
-  alignItems: 'center',
-  marginTop: 4,
-  marginBottom: 30,
-},
-
-bottomDeleteButtonText: {
-  color: '#FFD7D7',
-  fontWeight: '800',
-  fontSize: 15,
-},
+  emptyWrap: { flex: 1, paddingHorizontal: 20 },
   placeholder: {
     height: 300,
     borderRadius: 22,
@@ -1236,6 +1003,7 @@ bottomDeleteButtonText: {
     textAlign: 'center',
     lineHeight: 22,
   },
+
   featuredCard: {
     marginHorizontal: 20,
     borderRadius: 22,
@@ -1261,7 +1029,6 @@ bottomDeleteButtonText: {
     alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
     backgroundColor: 'rgba(242,201,76,0.96)',
     borderRadius: 999,
     paddingVertical: 7,
@@ -1272,6 +1039,7 @@ bottomDeleteButtonText: {
     color: '#0A2540',
     fontSize: 11,
     fontWeight: '900',
+    marginRight: 6,
   },
   featuredPbText: {
     color: '#0A2540',
@@ -1282,7 +1050,6 @@ bottomDeleteButtonText: {
     alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
     backgroundColor: 'rgba(10,37,64,0.85)',
     borderRadius: 999,
     paddingVertical: 6,
@@ -1291,15 +1058,8 @@ bottomDeleteButtonText: {
     borderWidth: 1,
     borderColor: 'rgba(242,201,76,0.5)',
   },
-  vaultIcon: {
-    color: '#F2C94C',
-    fontSize: 11,
-  },
-  vaultText: {
-    color: '#F2C94C',
-    fontSize: 11,
-    fontWeight: '800',
-  },
+  vaultIcon: { color: '#F2C94C', fontSize: 11, marginRight: 6 },
+  vaultText: { color: '#F2C94C', fontSize: 11, fontWeight: '800' },
   featuredDate: {
     color: '#FFFFFF',
     fontSize: 15,
@@ -1323,28 +1083,17 @@ bottomDeleteButtonText: {
     marginTop: 8,
     lineHeight: 18,
   },
-  grid: {
-    paddingHorizontal: 16,
-  },
-  row: {
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  card: {
-    width: '48.5%',
-    marginBottom: 4,
-  },
+
+  grid: { paddingHorizontal: 16 },
+  row: { justifyContent: 'space-between', marginBottom: 12 },
+  card: { width: '48.5%', marginBottom: 4 },
   imageWrap: {
     borderRadius: 18,
     overflow: 'hidden',
     backgroundColor: '#081E33',
     minHeight: 180,
   },
- gridImage: {
-  width: '100%',
-  height: 180,
-  backgroundColor: '#081E33',
-},
+  gridImage: { width: '100%', height: 180, backgroundColor: '#081E33' },
   imageOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.24)',
@@ -1359,11 +1108,7 @@ bottomDeleteButtonText: {
     paddingHorizontal: 10,
     zIndex: 3,
   },
-  editText: {
-    color: '#F2C94C',
-    fontSize: 12,
-    fontWeight: '800',
-  },
+  editText: { color: '#F2C94C', fontSize: 12, fontWeight: '800' },
   shareButton: {
     position: 'absolute',
     top: 10,
@@ -1374,40 +1119,26 @@ bottomDeleteButtonText: {
     paddingHorizontal: 10,
     zIndex: 3,
   },
-  shareIcon: {
-    color: '#F2C94C',
-    fontSize: 14,
-    fontWeight: '800',
-  },
+  shareIcon: { color: '#F2C94C', fontSize: 14, fontWeight: '800' },
   cardPbBadge: {
     position: 'absolute',
     top: 48,
     right: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
     backgroundColor: 'rgba(242,201,76,0.96)',
     borderRadius: 999,
     paddingVertical: 5,
     paddingHorizontal: 8,
   },
-  cardPbIcon: {
-    color: '#0A2540',
-    fontSize: 9,
-    fontWeight: '900',
-  },
-  cardPbText: {
-    color: '#0A2540',
-    fontSize: 10,
-    fontWeight: '800',
-  },
+  cardPbIcon: { color: '#0A2540', fontSize: 9, fontWeight: '900', marginRight: 4 },
+  cardPbText: { color: '#0A2540', fontSize: 10, fontWeight: '800' },
   cardVaultBadge: {
     position: 'absolute',
     bottom: 10,
     right: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
     backgroundColor: 'rgba(10,37,64,0.85)',
     borderRadius: 999,
     paddingVertical: 4,
@@ -1415,52 +1146,49 @@ bottomDeleteButtonText: {
     borderWidth: 1,
     borderColor: 'rgba(242,201,76,0.5)',
   },
-  cardVaultIcon: {
-    color: '#F2C94C',
-    fontSize: 9,
-  },
-  cardVaultText: {
-    color: '#F2C94C',
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  imageMeta: {
-    position: 'absolute',
-    left: 12,
-    right: 12,
-    bottom: 12,
-  },
+  cardVaultIcon: { color: '#F2C94C', fontSize: 9, marginRight: 4 },
+  cardVaultText: { color: '#F2C94C', fontSize: 10, fontWeight: '800' },
+  imageMeta: { position: 'absolute', left: 12, right: 12, bottom: 12 },
   imageDate: {
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
     marginBottom: 2,
   },
-  imageLocation: {
-    color: '#E3EAF0',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  cardBottom: {
-    paddingTop: 8,
-    paddingHorizontal: 4,
-    minHeight: 24,
-  },
-  weatherText: {
-    color: '#F2C94C',
-    fontSize: 11,
-    fontWeight: '700',
-  },
+  imageLocation: { color: '#E3EAF0', fontSize: 12, fontWeight: '500' },
+  cardBottom: { paddingTop: 8, paddingHorizontal: 4, minHeight: 24 },
+  weatherText: { color: '#F2C94C', fontSize: 11, fontWeight: '700' },
   notePreview: {
     color: '#E6EDF3',
     fontSize: 11,
     marginTop: 4,
     opacity: 0.9,
   },
-  detailContainer: {
-    flex: 1,
+
+  fullscreenWrap: { flex: 1, backgroundColor: '#081E33' },
+  fullscreenZoomScroll: { flex: 1, backgroundColor: '#081E33' },
+  fullscreenZoomContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: '#081E33',
   },
+  fullscreenImage: { width: '100%', height: '100%' },
+  fullscreenClose: {
+    position: 'absolute',
+    top: 54,
+    right: 20,
+    zIndex: 10,
+    backgroundColor: 'rgba(8,30,51,0.85)',
+    borderRadius: 999,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(242,201,76,0.45)',
+  },
+  fullscreenCloseText: { color: '#F5F7FA', fontWeight: '800' },
+
+  detailContainer: { flex: 1, backgroundColor: '#081E33' },
   detailHeader: {
     paddingTop: 16,
     paddingHorizontal: 20,
@@ -1469,50 +1197,32 @@ bottomDeleteButtonText: {
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  detailHeaderActions: {
-    flexDirection: 'row',
-    gap: 10,
+  detailHeaderActions: { flexDirection: 'row' },
+  detailTitle: { color: '#F5F7FA', fontSize: 24, fontWeight: '800' },
+  headerSaveButton: {
+    backgroundColor: '#F2C94C',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    marginRight: 10,
   },
-  detailTitle: {
-    color: '#F5F7FA',
-    fontSize: 24,
-    fontWeight: '800',
-  },
+  headerSaveButtonSaved: { backgroundColor: '#2ECC71' },
+  headerSaveButtonText: { color: '#0A2540', fontWeight: '800' },
   closeDetailButton: {
     backgroundColor: '#163554',
     paddingVertical: 10,
     paddingHorizontal: 14,
     borderRadius: 14,
   },
-  closeDetailText: {
-    color: '#F5F7FA',
-    fontWeight: '700',
-  },
-  deleteButton: {
-    backgroundColor: '#5A1F1F',
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 14,
-  },
-  deleteButtonText: {
-    color: '#FFD7D7',
-    fontWeight: '700',
-  },
-  detailContent: {
-  padding: 20,
-  paddingBottom: 180,
-},
+  closeDetailText: { color: '#F5F7FA', fontWeight: '700' },
+  detailContent: { padding: 20, paddingBottom: 180 },
   detailImageWrap: {
     borderRadius: 22,
     overflow: 'hidden',
     marginBottom: 16,
     backgroundColor: '#081E33',
   },
-  detailImage: {
-    width: '100%',
-    height: 340,
-    backgroundColor: '#081E33',
-  },
+  detailImage: { width: '100%', height: 340, backgroundColor: '#081E33' },
   detailImageOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.24)',
@@ -1523,49 +1233,32 @@ bottomDeleteButtonText: {
     right: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
     backgroundColor: 'rgba(242,201,76,0.96)',
     borderRadius: 999,
     paddingVertical: 7,
     paddingHorizontal: 12,
   },
-  detailPbIcon: {
-    color: '#0A2540',
-    fontSize: 11,
-    fontWeight: '900',
-  },
-  detailPbText: {
-    color: '#0A2540',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  detailImageMeta: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: 16,
-  },
+  detailPbIcon: { color: '#0A2540', fontSize: 11, fontWeight: '900', marginRight: 6 },
+  detailPbText: { color: '#0A2540', fontSize: 12, fontWeight: '800' },
+  detailImageMeta: { position: 'absolute', left: 16, right: 16, bottom: 16 },
   detailImageDate: {
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '800',
     marginBottom: 4,
   },
-  detailImageLocation: {
-    color: '#E3EAF0',
-    fontSize: 13,
-    fontWeight: '500',
-  },
+  detailImageLocation: { color: '#E3EAF0', fontSize: 13, fontWeight: '500' },
+
   editCard: {
-  backgroundColor: '#102C47',
-  borderRadius: 20,
-  padding: 14,
-  marginBottom: 16,
-  shadowColor: '#000',
-  shadowOpacity: 0.2,
-  shadowRadius: 10,
-  elevation: 4,
-},
+    backgroundColor: '#102C47',
+    borderRadius: 20,
+    padding: 14,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 4,
+  },
   editSectionTitle: {
     color: '#F5F7FA',
     fontSize: 18,
@@ -1603,26 +1296,7 @@ bottomDeleteButtonText: {
     paddingHorizontal: 10,
     borderRadius: 10,
   },
-  quickDateText: {
-    color: '#F2C94C',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  saveDetailsButton: {
-    backgroundColor: '#F2C94C',
-    paddingVertical: 12,
-    borderRadius: 16,
-    alignItems: 'center',
-    marginTop: 14,
-  },
-  saveDetailsButtonSaved: {
-    backgroundColor: '#2ECC71',
-  },
-  saveDetailsButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '800',
-    fontSize: 15,
-  },
+  quickDateText: { color: '#F2C94C', fontSize: 12, fontWeight: '700' },
   noteInput: {
     backgroundColor: '#081E33',
     borderRadius: 16,
@@ -1634,6 +1308,7 @@ bottomDeleteButtonText: {
     fontSize: 15,
     lineHeight: 20,
   },
+
   pbCard: {
     backgroundColor: '#102C47',
     borderRadius: 20,
@@ -1646,30 +1321,11 @@ bottomDeleteButtonText: {
     borderColor: 'rgba(242,201,76,0.45)',
     backgroundColor: '#12314F',
   },
-  pbRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  pbTextWrap: {
-    flex: 1,
-  },
-  pbTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
-  },
-  pbTitleIcon: {
-    color: '#F2C94C',
-    fontSize: 15,
-    fontWeight: '900',
-  },
-  pbTitle: {
-    color: '#F5F7FA',
-    fontSize: 18,
-    fontWeight: '800',
-  },
+  pbRow: { flexDirection: 'row', alignItems: 'center' },
+  pbTextWrap: { flex: 1 },
+  pbTitleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+  pbTitleIcon: { color: '#F2C94C', fontSize: 15, fontWeight: '900', marginRight: 8 },
+  pbTitle: { color: '#F5F7FA', fontSize: 18, fontWeight: '800' },
   pbSubtitle: {
     color: '#A5B3C2',
     fontSize: 14,
@@ -1683,6 +1339,82 @@ bottomDeleteButtonText: {
     textAlign: 'center',
     marginTop: 8,
   },
+
+  mountActionCard: {
+    backgroundColor: '#102C47',
+    borderRadius: 22,
+    padding: 16,
+    marginTop: 4,
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(242,201,76,0.24)',
+  },
+  mountActionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  mountIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#F2C94C',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  mountActionCopy: { flex: 1 },
+  mountActionTitle: {
+    color: '#F5F7FA',
+    fontSize: 17,
+    fontWeight: '900',
+    marginBottom: 3,
+  },
+  mountActionText: {
+    color: '#A5B3C2',
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 18,
+  },
+  mountButton: {
+    backgroundColor: '#F2C94C',
+    paddingVertical: 15,
+    borderRadius: 18,
+    alignItems: 'center',
+  },
+  mountButtonText: {
+    color: '#0A2540',
+    fontWeight: '900',
+    fontSize: 15,
+  },
+
+  dangerZone: {
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+    paddingTop: 18,
+    marginTop: 4,
+    marginBottom: 30,
+  },
+  dangerZoneLabel: {
+    color: '#8FA3B8',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginBottom: 10,
+  },
+  bottomDeleteButton: {
+    backgroundColor: '#5A1F1F',
+    paddingVertical: 14,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  bottomDeleteButtonText: {
+    color: '#FFD7D7',
+    fontWeight: '800',
+    fontSize: 15,
+  },
+
   hiddenShareWrap: {
     position: 'absolute',
     left: -10000,
@@ -1696,10 +1428,10 @@ bottomDeleteButtonText: {
     backgroundColor: '#102C47',
   },
   shareCardImage: {
-  width: '100%',
-  aspectRatio: 4 / 5,
-  backgroundColor: '#081E33',
-},
+    width: '100%',
+    aspectRatio: 4 / 5,
+    backgroundColor: '#081E33',
+  },
   shareCardMeta: {
     backgroundColor: '#102C47',
     paddingHorizontal: 20,
@@ -1726,13 +1458,13 @@ bottomDeleteButtonText: {
     marginBottom: 12,
   },
   shareCardBrand: {
-  position: 'absolute', // 👈 key
-  bottom: 12,           // 👈 adjust lower/higher
-  right: 16,            // 👈 right side
-  color: '#F2C94C',
-  fontSize: 10,
-  fontWeight: '800',
-  letterSpacing: 1,
-  opacity: 0.9,         // 👈 optional nicer look
-},
+    position: 'absolute',
+    bottom: 12,
+    right: 16,
+    color: '#F2C94C',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1,
+    opacity: 0.9,
+  },
 });

@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
@@ -42,13 +42,6 @@ type ProfileItem = {
 };
 
 type ProfileMap = Record<string, ProfileItem>;
-type KeeperCountsMap = Record<string, number>;
-type KeptByMeMap = Record<string, boolean>;
-
-type KeeperButtonProps = {
-  isKept: boolean;
-  onPress: () => void;
-};
 
 const PRIMARY = '#F2C94C';
 const BG = '#081E33';
@@ -57,57 +50,6 @@ const TEXT = '#F5F7FA';
 const MUTED = '#A5B3C2';
 
 const PAGE_SIZE = 20;
-
-function KeeperButton({ isKept, onPress }: KeeperButtonProps) {
-  const scale = useRef(new Animated.Value(1)).current;
-
-  const handlePress = async () => {
-    Animated.sequence([
-      Animated.timing(scale, {
-        toValue: 0.93,
-        duration: 80,
-        useNativeDriver: true,
-      }),
-      Animated.spring(scale, {
-        toValue: 1,
-        friction: 3,
-        tension: 130,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    try {
-      await Haptics.impactAsync(
-        isKept
-          ? Haptics.ImpactFeedbackStyle.Light
-          : Haptics.ImpactFeedbackStyle.Medium
-      );
-    } catch (error) {
-      console.log('Haptics error:', error);
-    }
-
-    onPress();
-  };
-
-  return (
-    <Animated.View style={{ transform: [{ scale }] }}>
-      <TouchableOpacity
-        style={[styles.keeperButton, isKept && styles.keeperButtonActive]}
-        onPress={handlePress}
-        activeOpacity={0.85}
-      >
-        <Text
-          style={[
-            styles.keeperButtonText,
-            isKept && styles.keeperButtonTextActive,
-          ]}
-        >
-          🎣 {isKept ? 'Keeper' : 'Mark Keeper'}
-        </Text>
-      </TouchableOpacity>
-    </Animated.View>
-  );
-}
 
 export default function MountsHomeScreen() {
   const router = useRouter();
@@ -123,9 +65,6 @@ export default function MountsHomeScreen() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [lastMountedAt, setLastMountedAt] = useState<string | null>(null);
-
-  const [keeperCounts, setKeeperCounts] = useState<KeeperCountsMap>({});
-  const [keptByMe, setKeptByMe] = useState<KeptByMeMap>({});
 
   const [showBackToTop, setShowBackToTop] = useState(false);
 
@@ -183,9 +122,7 @@ export default function MountsHomeScreen() {
 
     const missingUserIds = userIds.filter((id) => !profiles[id]);
 
-    if (missingUserIds.length === 0) {
-      return;
-    }
+    if (missingUserIds.length === 0) return;
 
     const { data: profilesData, error: profilesError } = await supabase
       .from('profiles')
@@ -206,55 +143,6 @@ export default function MountsHomeScreen() {
     setProfiles((prev) => ({
       ...prev,
       ...profileMap,
-    }));
-  };
-
-  const loadKeeperDataForMounts = async (mountedCatches: MountItem[]) => {
-    const catchIds = mountedCatches.map((item) => item.id);
-
-    if (catchIds.length === 0) return;
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    const { data: reactionsData, error: reactionsError } = await supabase
-      .from('catch_reactions')
-      .select('catch_id, user_id')
-      .eq('reaction_type', 'keeper')
-      .in('catch_id', catchIds);
-
-    if (reactionsError) {
-      console.log('Keeper reactions load error:', reactionsError);
-      return;
-    }
-
-    const nextCounts: KeeperCountsMap = {};
-    const nextKeptByMe: KeptByMeMap = {};
-
-    catchIds.forEach((catchId) => {
-      nextCounts[catchId] = 0;
-      nextKeptByMe[catchId] = false;
-    });
-
-    (reactionsData || []).forEach((reaction: any) => {
-      const catchId = reaction.catch_id;
-
-      nextCounts[catchId] = (nextCounts[catchId] || 0) + 1;
-
-      if (user?.id && reaction.user_id === user.id) {
-        nextKeptByMe[catchId] = true;
-      }
-    });
-
-    setKeeperCounts((prev) => ({
-      ...prev,
-      ...nextCounts,
-    }));
-
-    setKeptByMe((prev) => ({
-      ...prev,
-      ...nextKeptByMe,
     }));
   };
 
@@ -289,8 +177,6 @@ export default function MountsHomeScreen() {
         if (reset) {
           setMounts([]);
           setProfiles({});
-          setKeeperCounts({});
-          setKeptByMe({});
         }
 
         return;
@@ -301,8 +187,6 @@ export default function MountsHomeScreen() {
       if (reset) {
         setMounts(mountedCatches);
         setProfiles({});
-        setKeeperCounts({});
-        setKeptByMe({});
       } else {
         setMounts((prev) => [...prev, ...mountedCatches]);
       }
@@ -316,15 +200,12 @@ export default function MountsHomeScreen() {
       setHasMore(mountedCatches.length === PAGE_SIZE);
 
       await loadProfilesForMounts(mountedCatches);
-      await loadKeeperDataForMounts(mountedCatches);
     } catch (error) {
       console.log('Load mounts error:', error);
 
       if (reset) {
         setMounts([]);
         setProfiles({});
-        setKeeperCounts({});
-        setKeptByMe({});
       }
     } finally {
       setLoadingMore(false);
@@ -346,72 +227,6 @@ export default function MountsHomeScreen() {
   const loadMoreMounts = () => {
     if (!loadingMore && hasMore && mounts.length > 0) {
       loadMounts(false);
-    }
-  };
-
-  const toggleKeeper = async (item: MountItem) => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      Alert.alert('Sign in required', 'Please sign in to mark a catch as a Keeper.');
-      return;
-    }
-
-    const catchId = item.id;
-    const alreadyKept = !!keptByMe[catchId];
-
-    setKeptByMe((prev) => ({
-      ...prev,
-      [catchId]: !alreadyKept,
-    }));
-
-    setKeeperCounts((prev) => ({
-      ...prev,
-      [catchId]: Math.max(0, (prev[catchId] || 0) + (alreadyKept ? -1 : 1)),
-    }));
-
-    try {
-      if (alreadyKept) {
-        const { error } = await supabase
-          .from('catch_reactions')
-          .delete()
-          .eq('catch_id', catchId)
-          .eq('user_id', user.id)
-          .eq('reaction_type', 'keeper');
-
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('catch_reactions')
-          .upsert(
-            {
-              catch_id: catchId,
-              user_id: user.id,
-              reaction_type: 'keeper',
-            },
-            {
-              onConflict: 'catch_id,user_id,reaction_type',
-            }
-          );
-
-        if (error) throw error;
-      }
-    } catch (error) {
-      console.log('Toggle keeper error:', error);
-
-      setKeptByMe((prev) => ({
-        ...prev,
-        [catchId]: alreadyKept,
-      }));
-
-      setKeeperCounts((prev) => ({
-        ...prev,
-        [catchId]: Math.max(0, (prev[catchId] || 0) + (alreadyKept ? 1 : -1)),
-      }));
-
-      Alert.alert('Could not update Keeper', 'Please try again.');
     }
   };
 
@@ -487,17 +302,10 @@ export default function MountsHomeScreen() {
     const profileName = profile?.display_name || profile?.username || 'Angler';
     const avatarUrl = profile?.avatar_url || '';
 
-    const keeperCount = keeperCounts[item.id] || 0;
-    const isKept = !!keptByMe[item.id];
-
     return (
       <View style={styles.card}>
         <View style={styles.cardHeader}>
-          <View style={{ flex: 1, paddingRight: 12 }}>
-            <Text style={styles.userText}>Mounted</Text>
-
-            {!!mountedDate && <Text style={styles.metaText}>{mountedDate}</Text>}
-          </View>
+          <View style={{ flex: 1 }} />
 
           <TouchableOpacity
             onPress={() => {
@@ -540,6 +348,10 @@ export default function MountsHomeScreen() {
               />
             </TouchableOpacity>
 
+            <View style={styles.imageTrophyBadge}>
+              <MaterialIcons name="emoji-events" size={18} color={PRIMARY} />
+            </View>
+
             <TouchableOpacity
               style={styles.shareButton}
               onPress={() => shareMount(item)}
@@ -567,13 +379,18 @@ export default function MountsHomeScreen() {
             </Text>
           )}
 
-          <View style={styles.actionRow}>
-            <KeeperButton isKept={isKept} onPress={() => toggleKeeper(item)} />
+          <View style={styles.cardFooter}>
+  <View style={styles.mountedFooterRow}>
+    <MaterialIcons name="emoji-events" size={15} color={PRIMARY} />
+    <Text style={styles.mountedFooterText}>Mounted on ReelWall</Text>
+  </View>
 
-            <Text style={styles.keeperCountText}>
-              {keeperCount === 1 ? '1 keeper' : `${keeperCount} keepers`}
-            </Text>
-          </View>
+  {!!mountedDate && (
+    <Text style={styles.mountedFooterDate}>
+      {`Mounted • ${mountedDate}`}
+    </Text>
+  )}
+</View>
         </View>
       </View>
     );
@@ -610,16 +427,21 @@ export default function MountsHomeScreen() {
         ListHeaderComponent={
           <>
             <View style={styles.topHeader}>
-              <View style={styles.profileRow}>
-                <Ionicons
-                  name="person-circle-outline"
-                  size={28}
-                  color={PRIMARY}
-                  onPress={() => router.push('/profile')}
-                />
-              </View>
-
-              <Text style={styles.eyebrow}>REELWALL</Text>
+              
+  <View style={styles.profileRow}>
+  <TouchableOpacity
+    style={styles.profileTopButton}
+    onPress={() => router.push('/profile')}
+    activeOpacity={0.8}
+  >
+    <Ionicons
+      name="person-circle-outline"
+      size={26}
+      color={PRIMARY}
+    />
+    <Text style={styles.profileTopLabel}>Profile</Text>
+  </TouchableOpacity>
+</View>
 
               <Image
                 source={require('../../assets/logo.png')}
@@ -628,22 +450,50 @@ export default function MountsHomeScreen() {
               />
 
               <Text style={styles.subtitle}>Every Fish Has a Story</Text>
+
+              
             </View>
 
+            <View style={styles.flowRow}>
+  <Text style={styles.flowText}>Capture</Text>
+  <Text style={styles.flowArrow}>→</Text>
+
+  <Text style={styles.flowText}>Choose</Text>
+  <Text style={styles.flowArrow}>→</Text>
+
+  <Text style={styles.flowTextHighlight}>Mount</Text>
+  <Text style={styles.flowArrow}>→</Text>
+
+  <Text style={styles.flowText}>Share</Text>
+  <Text style={styles.flowArrow}>→</Text>
+
+  <Text style={styles.flowText}>Vault</Text>
+</View>
+
             <View style={styles.mountsHeader}>
-              <View style={styles.mountsHeaderTop}>
-                <View>
-                  <Text style={styles.mountsEyebrow}>COMMUNITY</Text>
-                  <Text style={styles.mountsTitle}>ReelWall Mounts</Text>
-                </View>
+              <View style={styles.mountsIntroPill}>
+                <MaterialIcons name="emoji-events" size={15} color={PRIMARY} />
+                <Text style={styles.mountsIntroPillText}>
+                  Community Trophy Wall
+                </Text>
+              </View>
+
+              <Text style={styles.mountsTitle}>ReelWall Mounts</Text>
+
+              <Text style={styles.mountsSubtitle}>
+                The moments anglers chose to mount.
+              </Text>
+
+              <View style={styles.mountsBottomRow}>
+                <Text style={styles.mountsBottomText}>
+                  Latest community mounts
+                </Text>
 
                 <View style={styles.livePill}>
                   <View style={styles.liveDot} />
                   <Text style={styles.livePillText}>Live</Text>
                 </View>
               </View>
-
-              <Text style={styles.mountsSubtitle}>Shared by anglers</Text>
             </View>
           </>
         }
@@ -794,81 +644,121 @@ const styles = StyleSheet.create({
   },
 
   topHeader: {
-    alignItems: 'center',
-    marginTop: 12,
-    marginBottom: 8,
-    paddingHorizontal: 20,
-  },
+  alignItems: 'center',
+  marginTop: 4,
+  marginBottom: 0,
+  paddingHorizontal: 22,
+  position: 'relative',
+},
 
   profileRow: {
-    width: '100%',
-    alignItems: 'flex-end',
-    marginBottom: 6,
-  },
+  position: 'absolute',
+  top: 10,
+  right: 18,
+  zIndex: 20,
+  alignItems: 'center',
+},
 
-  eyebrow: {
-    color: PRIMARY,
-    fontSize: 16,
-    fontWeight: '900',
-    letterSpacing: 2,
-    marginBottom: 4,
-    opacity: 0.9,
-  },
+profileTopButton: {
+  alignItems: 'center',
+},
+
+profileTopLabel: {
+  color: '#8FA3B8',
+  fontSize: 10,
+  fontWeight: '700',
+  marginTop: 1,
+},
 
   logo: {
-    width: 220,
-    height: 220,
+    width: 150,
+    height: 150,
     alignSelf: 'center',
-    marginBottom: 4,
+    marginTop: -8,
+    marginBottom: -10,
   },
 
   subtitle: {
-    fontSize: 15,
+    fontSize: 13,
     color: MUTED,
     textAlign: 'center',
-    fontWeight: '600',
-    marginTop: 10,
-    marginBottom: 6,
+    fontWeight: '700',
+    marginTop: 0,
+    marginBottom: 8,
+  },
+
+  introText: {
+    color: TEXT,
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: '800',
+    textAlign: 'center',
+    maxWidth: 330,
+    marginBottom: 14,
   },
 
   mountsHeader: {
-    backgroundColor: BG,
+    backgroundColor: 'rgba(16,44,71,0.45)',
     paddingHorizontal: 20,
-    paddingTop: 14,
-    paddingBottom: 24,
+    paddingTop: 16,
+    paddingBottom: 18,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.04)',
+    borderTopColor: 'rgba(255,255,255,0.05)',
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
+    borderBottomColor: 'rgba(255,255,255,0.1)',
   },
 
-  mountsHeaderTop: {
+  mountsIntroPill: {
+    alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    backgroundColor: 'rgba(242,201,76,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(242,201,76,0.22)',
+    borderRadius: 999,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    marginBottom: 10,
   },
 
-  mountsEyebrow: {
+  mountsIntroPillText: {
     color: PRIMARY,
     fontSize: 10,
     fontWeight: '900',
-    letterSpacing: 1.4,
-    marginBottom: 3,
-    opacity: 0.85,
+    letterSpacing: 1,
+    marginLeft: 6,
+    textTransform: 'uppercase',
   },
 
   mountsTitle: {
     color: TEXT,
-    fontSize: 23,
+    fontSize: 30,
     fontWeight: '900',
     letterSpacing: 0.2,
+    marginBottom: 8,
   },
 
   mountsSubtitle: {
     color: MUTED,
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '700',
-    marginTop: 4,
+    lineHeight: 21,
+    maxWidth: 350,
+  },
+
+  mountsBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 14,
+  },
+
+  mountsBottomText: {
+    color: PRIMARY,
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
   },
 
   livePill: {
@@ -878,8 +768,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(242,201,76,0.28)',
     borderRadius: 999,
-    paddingVertical: 5,
-    paddingHorizontal: 9,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
   },
 
   liveDot: {
@@ -892,7 +782,7 @@ const styles = StyleSheet.create({
 
   livePillText: {
     color: PRIMARY,
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '900',
     letterSpacing: 0.5,
   },
@@ -902,30 +792,46 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     overflow: 'hidden',
     marginHorizontal: 18,
-    marginTop: 4,
+    marginTop: 18,
     marginBottom: 18,
   },
 
   cardHeader: {
-    padding: 14,
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 8,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+flowRow: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  flexWrap: 'wrap',
+  marginTop: 6,
+  marginBottom: 14,
+  opacity: 0.75, // keeps it muted
+},
 
-  userText: {
-    color: TEXT,
-    fontSize: 15,
-    fontWeight: '900',
-  },
+flowText: {
+  color: '#A5B3C2', // MUTED
+  fontSize: 12,
+  fontWeight: '700',
+},
 
-  metaText: {
-    color: MUTED,
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 3,
-  },
+flowTextHighlight: {
+  color: '#F2C94C', // PRIMARY (Mount pops slightly)
+  fontSize: 12,
+  fontWeight: '900',
+},
 
+flowArrow: {
+  color: '#A5B3C2',
+  fontSize: 12,
+  marginHorizontal: 6,
+  opacity: 0.6,
+},
   userBlock: {
     alignItems: 'center',
     maxWidth: 86,
@@ -982,6 +888,21 @@ const styles = StyleSheet.create({
     backgroundColor: BG,
   },
 
+  imageTrophyBadge: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(0,0,0,0.62)',
+    borderWidth: 1,
+    borderColor: 'rgba(242,201,76,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 5,
+  },
+
   shareButton: {
     position: 'absolute',
     top: 12,
@@ -1023,49 +944,28 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 
-  actionRow: {
+  cardFooter: {
+    alignItems: 'flex-start',
+    marginTop: 14,
+  },
+
+  mountedFooterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 14,
-    gap: 10,
   },
 
-  keeperButton: {
-    backgroundColor: 'rgba(242,201,76,0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(242,201,76,0.35)',
-    borderRadius: 999,
-    paddingVertical: 8,
-    paddingHorizontal: 13,
-  },
-
-  keeperButtonActive: {
-    backgroundColor: PRIMARY,
-    borderColor: PRIMARY,
-    shadowColor: PRIMARY,
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 3,
-  },
-
-  keeperButtonText: {
-    color: PRIMARY,
+  mountedFooterText: {
+    color: TEXT,
     fontSize: 12,
     fontWeight: '900',
+    marginLeft: 5,
   },
 
-  keeperButtonTextActive: {
-    color: '#0A2540',
-  },
-
-  keeperCountText: {
+  mountedFooterDate: {
     color: MUTED,
-    fontSize: 12,
-    fontWeight: '800',
-    flexShrink: 1,
-    textAlign: 'right',
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 3,
   },
 
   pbBadge: {

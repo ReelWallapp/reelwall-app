@@ -31,37 +31,36 @@ export default function VaultScreen() {
             />
           </View>
 
-          <Text style={styles.title}>Your Fishing Legacy, Preserved.</Text>
+          <Text style={styles.title}>Your Best Moments, Preserved.</Text>
 
           <Text style={styles.subtitle}>
-            LiveWell Vault is where your most meaningful fishing experiences become lasting,
-            verifiable records — protected by LiveWell and ready to share when
-            it matters.
+            The memories worth keeping live here — secured, protected, and ready
+            when it matters.
           </Text>
 
           <View style={styles.taglineWrap}>
-            <Text style={styles.taglinePrimary}>
-              You didn’t lose it during the fight
-            </Text>
-            <Text style={styles.taglineSecondary}>Don’t lose it now</Text>
+            <Text style={styles.taglinePrimary}>You earned the moment</Text>
+            <Text style={styles.taglineSecondary}>Now preserve it</Text>
           </View>
 
           <View style={styles.statusCard}>
             <View style={styles.statusCopy}>
-              <Text style={styles.statusLabel}>MY LIVEWELL VAULT</Text>
+              <Text style={styles.statusLabel}>MY VAULT</Text>
+
               <Text style={styles.statusTitle}>
-                {hasRecords ? 'Verified Records' : 'Vault Ready'}
+                {hasRecords ? 'Vaulted Records' : 'Vault Ready'}
               </Text>
+
               <Text style={styles.statusText}>
                 {hasRecords
-                  ? 'Your preserved catches are secured and ready to view or share.'
-                  : 'Start by selecting a meaningful catch from your ReelWall once Vault access opens.'}
+                  ? 'Your most meaningful moments are preserved and ready to view or share.'
+                  : 'Choose a moment from your ReelWall and preserve it here once Vault access opens.'}
               </Text>
             </View>
 
             <View style={styles.recordCountWrap}>
               <Text style={styles.recordCount}>0</Text>
-              <Text style={styles.recordCountLabel}>Records</Text>
+              <Text style={styles.recordCountLabel}>Vaulted</Text>
             </View>
           </View>
 
@@ -86,17 +85,16 @@ export default function VaultScreen() {
                   />
                 </View>
 
-                <Text style={styles.emptyTitle}>No records yet</Text>
+                <Text style={styles.emptyTitle}>Nothing vaulted yet</Text>
 
                 <Text style={styles.emptyText}>
-                  Your photos and catch details are already securely stored in
-                  ReelWall. LiveWell Vault will add another layer of protection
-                  for the moments you want to preserve as lasting records.
+                  Your ReelWall holds the moments you chose to mount. Vault is
+                  where the ones that matter most are preserved for good.
                 </Text>
 
                 <View style={styles.trustPill}>
                   <Text style={styles.trustPillText}>
-                    🔒 Already secured. Vault protection coming soon.
+                    🔒 Secure. Private. Built to last.
                   </Text>
                 </View>
               </View>
@@ -121,7 +119,7 @@ export default function VaultScreen() {
                   </View>
 
                   <View style={styles.secondaryButton}>
-                    <Text style={styles.secondaryButtonText}>Share QR</Text>
+                    <Text style={styles.secondaryButtonText}>Share</Text>
                   </View>
                 </View>
               </View>
@@ -130,28 +128,29 @@ export default function VaultScreen() {
 
           <View style={styles.infoCard}>
             <Text style={styles.infoBadge}>WHY IT MATTERS</Text>
-            <Text style={styles.infoTitle}>More than a catch. A legacy.</Text>
+            <Text style={styles.infoTitle}>
+              Some moments deserve more than a post.
+            </Text>
             <Text style={styles.infoText}>
-              ReelWall helps you save the catch and keep the story. LiveWell
-              Vault gives your most important moments a place that feels
-              permanent, protected, and worth passing on.
+              ReelWall is where your best moments become part of your story.
+              Vault is where you preserve the ones you never want to lose.
             </Text>
           </View>
 
           <View style={styles.proofCard}>
-            <Text style={styles.proofTitle}>An added layer of confidence</Text>
+            <Text style={styles.proofTitle}>Built on your ReelWall</Text>
             <Text style={styles.proofText}>
-              Nothing is moving away from your ReelWall. Your catches, photos,
-              and stories remain safely stored. LiveWell Vault is being built as
-              an additional layer for the catches you want to protect, verify,
-              and share as part of your fishing legacy.
+              Nothing changes about your ReelWall. Your photos, stories, and
+              mounted moments stay exactly where they are. Vault is an added
+              layer — for the moments you want to protect, preserve, and carry
+              forward.
             </Text>
           </View>
 
           <View style={styles.footerNote}>
             <Text style={styles.footerNoteText}>
-              Vault access is coming soon. Until then, keep building your
-              ReelWall with the moments that matter most.
+              Vault access is coming soon. Keep building your ReelWall with the
+              moments worth remembering.
             </Text>
           </View>
         </View>

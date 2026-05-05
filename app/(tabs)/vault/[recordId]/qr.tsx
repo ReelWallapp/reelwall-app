@@ -1,10 +1,11 @@
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
 import {
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    View,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
@@ -14,14 +15,21 @@ const TEXT = '#F5F7FA';
 const MUTED = '#A5B3C2';
 
 export default function VaultQRScreen() {
+  const router = useRouter();
   const { recordId } = useLocalSearchParams<{ recordId: string }>();
 
-  // 🔗 IMPORTANT: this is your verification URL
-  const verificationUrl = `http://localhost:8081/vault/${recordId}`;
+  // ✅ FIXED: correct production URL
+  const verificationUrl = `https://reelwall.app/v/${recordId}`;
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
+        
+        {/* ✅ BACK BUTTON */}
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Text style={styles.backButtonText}>← Back</Text>
+        </TouchableOpacity>
+
         <Text style={styles.title}>Verified Record</Text>
 
         <Text style={styles.subtitle}>
@@ -37,8 +45,9 @@ export default function VaultQRScreen() {
           />
         </View>
 
+        {/* ✅ FIXED: correct URL display */}
         <Text style={styles.urlText}>
-          reelwall.app/vault/{recordId}
+          reelwall.app/v/{recordId}
         </Text>
 
         <Text style={styles.note}>
@@ -59,11 +68,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 24,
   },
+
+  // ✅ NEW
+  backButton: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    backgroundColor: 'rgba(8,30,51,0.85)',
+    borderRadius: 999,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(242,201,76,0.35)',
+  },
+  backButtonText: {
+    color: TEXT,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+
   title: {
     color: TEXT,
     fontSize: 22,
     fontWeight: '900',
     marginBottom: 6,
+    marginTop: 40,
   },
   subtitle: {
     color: MUTED,

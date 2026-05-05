@@ -705,33 +705,50 @@ useFocusEffect(
         )}
       </ScrollView>
 
-      <Modal visible={!!fullscreenCatch} animationType="fade" transparent>
-        <View style={styles.fullscreenWrap}>
-          <TouchableOpacity style={styles.fullscreenClose} onPress={() => setFullscreenCatch(null)}>
-            <Text style={styles.fullscreenCloseText}>Close</Text>
-          </TouchableOpacity>
+      <Modal visible={!!fullscreenCatch} animationType="fade" transparent={false}>
+  <SafeAreaView style={styles.fullscreenWrap}>
+    <TouchableOpacity
+      style={styles.fullscreenClose}
+      onPress={() => setFullscreenCatch(null)}
+    >
+      <Text style={styles.fullscreenCloseText}>Close</Text>
+    </TouchableOpacity>
 
-          {fullscreenCatch && (
-            <ScrollView
-              style={styles.fullscreenZoomScroll}
-              contentContainerStyle={styles.fullscreenZoomContent}
-              maximumZoomScale={4}
-              minimumZoomScale={1}
-              bouncesZoom
-              pinchGestureEnabled
-              showsHorizontalScrollIndicator={false}
-              showsVerticalScrollIndicator={false}
-              centerContent
-            >
-              <Image
-                source={{ uri: fullscreenCatch.uri }}
-                style={styles.fullscreenImage}
-                resizeMode="contain"
-              />
+    {fullscreenCatch && (
+      <>
+        <ScrollView
+          style={styles.fullscreenZoomScroll}
+          contentContainerStyle={styles.fullscreenZoomContent}
+          maximumZoomScale={4}
+          minimumZoomScale={1}
+          bouncesZoom
+          pinchGestureEnabled
+          showsHorizontalScrollIndicator={false}
+          showsVerticalScrollIndicator={false}
+          centerContent
+        >
+          <Image
+            source={{ uri: fullscreenCatch.uri }}
+            style={styles.fullscreenImage}
+            resizeMode="contain"
+          />
+        </ScrollView>
+
+        {!!fullscreenCatch.note && (
+          <View style={styles.fullscreenStoryPanel}>
+            <Text style={styles.fullscreenStoryTitle}>Story</Text>
+
+            <ScrollView showsVerticalScrollIndicator>
+              <Text style={styles.fullscreenStory}>
+                {fullscreenCatch.note}
+              </Text>
             </ScrollView>
-          )}
-        </View>
-      </Modal>
+          </View>
+        )}
+      </>
+    )}
+  </SafeAreaView>
+</Modal>
 
       <Modal visible={!!selectedCatch} animationType="slide" presentationStyle="fullScreen">
         <SafeAreaView style={styles.detailContainer}>
@@ -1026,7 +1043,33 @@ const styles = StyleSheet.create({
   detailFlex: { flex: 1 },
   scrollContent: { paddingBottom: 40 },
 
+fullscreenStoryPanel: {
+  position: 'absolute',
+  left: 14,
+  right: 14,
+  bottom: 28,
+  maxHeight: '30%',
+  backgroundColor: 'rgba(16,44,71,0.96)',
+  borderRadius: 22,
+  padding: 16,
+  borderWidth: 1,
+  borderColor: 'rgba(255,255,255,0.12)',
+},
 
+fullscreenStoryTitle: {
+  color: '#F2C94C',
+  fontSize: 13,
+  fontWeight: '900',
+  marginBottom: 8,
+  textTransform: 'uppercase',
+},
+
+fullscreenStory: {
+  color: '#F5F7FA',
+  fontSize: 15,
+  lineHeight: 22,
+  fontWeight: '600',
+},
 featuredVaultedCard: {
   borderWidth: 2,
   borderColor: '#F2C94C',

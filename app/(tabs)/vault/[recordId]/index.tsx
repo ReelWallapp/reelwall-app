@@ -1,10 +1,7 @@
-import VaultCertificateImage from '@/components/VaultCertificateImage';
-import { prepareVaultMint } from '@/lib/prepareVaultMint';
 import { supabase } from '@/lib/supabase';
 import { VaultRecord } from '@/lib/types/vault';
 import { formatDate, getLocation, getPublicImageUrl } from '@/lib/vaultFormatters';
 import { MaterialIcons } from '@expo/vector-icons';
-import * as Linking from 'expo-linking';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import React, { useEffect, useRef, useState } from 'react';
@@ -12,6 +9,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Platform,
   SafeAreaView,
   ScrollView,
   Share,
@@ -38,7 +36,7 @@ export default function VaultDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
 
-  const verificationUrl = `https://reelwall.app`;
+  const verificationUrl = `https://reelwall.app/v/${recordId}`;
 
   const loadRecord = async () => {
     if (!recordId) return;
@@ -64,30 +62,29 @@ export default function VaultDetailScreen() {
   };
 
   useEffect(() => {
-  loadRecord();
-}, [recordId]);
-
-useEffect(() => {
-  if (!record) return;
-
-  const isSecured =
-    record.vault_status === 'secured' ||
-    record.mint_status === 'minted';
-
-  if (isSecured) return;
-
-  const timer = setTimeout(() => {
     loadRecord();
-  }, 4000);
+  }, [recordId]);
 
-  return () => clearTimeout(timer);
-}, [record]);
+  useEffect(() => {
+    if (!record) return;
+
+    const isSecured =
+      record.vault_status === 'secured' ||
+      record.mint_status === 'minted';
+
+    if (isSecured) return;
+
+    const timer = setTimeout(() => {
+      loadRecord();
+    }, 4000);
+
+    return () => clearTimeout(timer);
+  }, [record]);
 
   const shareRecord = async () => {
     try {
       await Share.share({
-        message: `View this LiveWell Vault record: ${verificationUrl}`,
-        url: verificationUrl,
+        message: `View this verified LiveWell Vault record:\n${verificationUrl}`,
       });
     } catch (error) {
       console.log('Share record error:', error);
@@ -101,13 +98,26 @@ useEffect(() => {
     try {
       setWorking(true);
 
-      await new Promise((resolve) => setTimeout(resolve, 1200));
+      await new Promise((resolve) => setTimeout(resolve, 800));
 
       const imageUri = await (certificateRef.current as any)?.capture?.();
 
       if (!imageUri) {
         Alert.alert('Could not generate certificate image');
         return;
+      }
+
+      // iMessage usually behaves better with React Native's native Share sheet.
+      if (Platform.OS === 'ios') {
+        try {
+          await Share.share({
+            url: imageUri,
+            message: `LiveWell Vault certificate\n${verificationUrl}`,
+          });
+          return;
+        } catch (nativeShareError) {
+          console.log('Native image share failed, trying Expo Sharing:', nativeShareError);
+        }
       }
 
       const canShare = await Sharing.isAvailableAsync();
@@ -125,57 +135,6 @@ useEffect(() => {
     } catch (error: any) {
       console.log('Share certificate image error:', error);
       Alert.alert('Could not share certificate image', error?.message || 'Please try again.');
-    } finally {
-      setWorking(false);
-    }
-  };
-
-  const prepareVaultProof = async () => {
-    if (!record) return;
-
-    try {
-      setWorking(true);
-
-      const metadataUrl = await prepareVaultMint(record);
-
-      Alert.alert('Vault proof ready', 'Opening proof file in browser...');
-      await Linking.openURL(metadataUrl);
-
-      await loadRecord();
-    } catch (error: any) {
-      Alert.alert('Could not prepare Vault proof', error?.message || 'Please try again.');
-    } finally {
-      setWorking(false);
-    }
-  };
-
-  const secureVaultRecord = async () => {
-    if (!record) return;
-
-    if (!record.metadata_url) {
-      Alert.alert(
-        'Prepare Vault proof first',
-        'Create the Vault proof before securing this record.'
-      );
-      return;
-    }
-
-    try {
-      setWorking(true);
-
-      const { data, error } = await supabase.functions.invoke('secure-vault-record', {
-        body: { recordId: record.id },
-      });
-
-      if (error) throw error;
-
-      console.log('Secure Vault response:', data);
-
-      Alert.alert('Vault', 'Record secured successfully.');
-      await loadRecord();
-    } catch (error: any) {
-      console.log('Secure Vault error:', error);
-      Alert.alert('Could not secure record', error?.message || 'Please try again.');
     } finally {
       setWorking(false);
     }
@@ -208,18 +167,20 @@ useEffect(() => {
 
   const imageUrl = getPublicImageUrl(record.image_url);
   const location = getLocation(record);
-  const displayDate = formatDate(record.catch_date || record.created_at, 'long');
-  const preservedDate = formatDate(record.created_at, 'long');
+
+  const catchDate = record.catch_date
+    ? formatDate(record.catch_date, 'long')
+    : 'Catch date not provided';
+
+  const preservedDate = record.created_at
+    ? formatDate(record.created_at, 'long')
+    : 'Date preserved';
+
   const story = record.story?.trim() || 'A catch worth preserving.';
 
   const isSecured =
     record.vault_status === 'secured' ||
     record.mint_status === 'minted';
-
-  const certificateRecord = {
-    ...record,
-    image_url: imageUrl,
-  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -228,86 +189,89 @@ useEffect(() => {
         <View style={styles.goldGlow} />
 
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.replace('/vault' as any)}>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
             <Text style={styles.backButtonText}>← Back</Text>
           </TouchableOpacity>
 
           <Text style={styles.brandText}>LIVEWELL VAULT</Text>
           <Text style={styles.title}>Certificate of Record</Text>
           <Text style={styles.subtitle}>A preserved catch from ReelWall</Text>
-<View style={[
-  styles.vaultStatusPill,
-  isSecured && styles.vaultStatusPillSecured
-]}>
-  {isSecured ? (
-    <Text style={styles.vaultStatusPillText}>
-      ✓ Secured in Vault
-    </Text>
-  ) : (
-    <View style={styles.vaultStatusLoadingRow}>
-      <ActivityIndicator size="small" color={PRIMARY} />
-      <Text style={[styles.vaultStatusPillText, { marginLeft: 8 }]}>
-        Securing record...
-      </Text>
-    </View>
-  )}
-</View>
-<Text style={styles.permanentLabel}>
-  Permanent • Verified Record
-</Text>
 
-        //</View><View style={styles.certificateCard}>
-          <View style={styles.certificateBorder}>
-            <View style={styles.statusBadge}>
-              <Text style={styles.statusBadgeText}>🔒 LIVEWELL VAULTED</Text>
-            </View>
-
-            <View style={styles.imageFrame}>
-              {imageUrl ? (
-                <Image source={{ uri: imageUrl }} style={styles.heroImage} resizeMode="contain" />
-              ) : (
-                <View style={styles.heroFallback}>
-                  <MaterialIcons name="emoji-events" size={72} color={PRIMARY} />
-                </View>
-              )}
-            </View>
-
-            <Text style={styles.recordTitle}>Preserved Catch</Text>
-            <Text style={styles.recordDate}>{displayDate}</Text>
-
-            <View style={styles.goldDivider} />
-
-            <View style={styles.certStatement}>
-  <Text style={styles.certStatementLabel}>The Story</Text>
-  <Text style={styles.certStatementText}>{story}</Text>
-</View>
-
-            <View style={styles.detailsGrid}>
-              <View style={styles.detailBox}>
-                <Text style={styles.detailLabel}>Location</Text>
-                <Text style={styles.detailValue}>{location}</Text>
-              </View>
-
-              <View style={styles.detailBox}>
-                <Text style={styles.detailLabel}>Preserved</Text>
-                <Text style={styles.detailValue}>{preservedDate}</Text>
-              </View>
-
-              <View style={styles.detailBoxFull}>
-                <Text style={styles.detailLabel}>Source</Text>
-                <Text style={styles.detailValue}>Mounted on ReelWall</Text>
-              </View>
-            </View>
-
-            {record.is_personal_best && (
-              <View style={styles.pbBadge}>
-                <Text style={styles.pbText}>★ PERSONAL BEST</Text>
+          <View style={[styles.vaultStatusPill, isSecured && styles.vaultStatusPillSecured]}>
+            {isSecured ? (
+              <Text style={styles.vaultStatusPillText}>✓ Secured in Vault</Text>
+            ) : (
+              <View style={styles.vaultStatusLoadingRow}>
+                <ActivityIndicator size="small" color={PRIMARY} />
+                <Text style={[styles.vaultStatusPillText, { marginLeft: 8 }]}>
+                  Securing record...
+                </Text>
               </View>
             )}
           </View>
+
+          <Text style={styles.permanentLabel}>Permanent • Verified Record</Text>
         </View>
 
-        
+        <ViewShot
+          ref={certificateRef}
+          options={{
+            format: 'jpg',
+            quality: 1,
+            fileName: `livewell-vault-${record.id}`,
+          }}
+        >
+          <View style={styles.certificateCard}>
+            <View style={styles.certificateBorder}>
+              <View style={styles.statusBadge}>
+                <Text style={styles.statusBadgeText}>🔒 LIVEWELL VAULTED</Text>
+              </View>
+
+              <View style={styles.imageFrame}>
+                {imageUrl ? (
+                  <Image source={{ uri: imageUrl }} style={styles.heroImage} resizeMode="contain" />
+                ) : (
+                  <View style={styles.heroFallback}>
+                    <MaterialIcons name="emoji-events" size={72} color={PRIMARY} />
+                  </View>
+                )}
+              </View>
+
+              <Text style={styles.recordTitle}>Preserved Catch</Text>
+              <Text style={styles.recordDate}>Preserved {preservedDate}</Text>
+
+              <View style={styles.goldDivider} />
+
+              <View style={styles.certStatement}>
+                <Text style={styles.certStatementLabel}>The Story</Text>
+                <Text style={styles.certStatementText}>{story}</Text>
+              </View>
+
+              <View style={styles.detailsGrid}>
+                <View style={styles.detailBox}>
+                  <Text style={styles.detailLabel}>Location</Text>
+                  <Text style={styles.detailValue}>{location}</Text>
+                </View>
+
+                <View style={styles.detailBox}>
+                  <Text style={styles.detailLabel}>Catch Date</Text>
+                  <Text style={styles.detailValue}>{catchDate}</Text>
+                </View>
+
+                <View style={styles.detailBoxFull}>
+                  <Text style={styles.detailLabel}>Source</Text>
+                  <Text style={styles.detailValue}>Mounted on ReelWall</Text>
+                </View>
+              </View>
+
+              {record.is_personal_best && (
+                <View style={styles.pbBadge}>
+                  <Text style={styles.pbText}>★ PERSONAL BEST</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        </ViewShot>
 
         <View style={styles.lockedCard}>
           <Text style={styles.lockedTitle}>Permanently Preserved</Text>
@@ -334,8 +298,6 @@ useEffect(() => {
           )}
         </TouchableOpacity>
 
-        
-
         <TouchableOpacity
           activeOpacity={0.86}
           style={styles.secondaryButton}
@@ -346,19 +308,6 @@ useEffect(() => {
 
         <Text style={styles.footerNote}>Verified by LiveWell Vault</Text>
       </ScrollView>
-
-      <View style={styles.hiddenCertificateWrap}>
-        <ViewShot
-          ref={certificateRef}
-          options={{
-            format: 'jpg',
-            quality: 1,
-            fileName: `livewell-vault-${record.id}`,
-          }}
-        >
-          <VaultCertificateImage record={certificateRecord} />
-        </ViewShot>
-      </View>
     </SafeAreaView>
   );
 }
@@ -434,41 +383,38 @@ const styles = StyleSheet.create({
     letterSpacing: 1.8,
     marginBottom: 8,
   },
-
   vaultStatusPill: {
-  alignSelf: 'flex-start',
-  backgroundColor: 'rgba(242, 201, 76, 0.1)',
-  borderRadius: 999,
-  paddingVertical: 9,
-  paddingHorizontal: 13,
-  borderWidth: 1,
-  borderColor: 'rgba(242, 201, 76, 0.35)',
-  marginTop: 12,
-},
-certStatementLabel: {
-  color: PRIMARY,
-  fontSize: 10,
-  fontWeight: '900',
-  letterSpacing: 1,
-  marginBottom: 8,
-  textTransform: 'uppercase',
-},
-vaultStatusPillSecured: {
-  backgroundColor: 'rgba(242, 201, 76, 0.16)',
-  borderColor: PRIMARY,
-},
-
-vaultStatusPillText: {
-  color: PRIMARY,
-  fontSize: 13,
-  fontWeight: '900',
-  letterSpacing: 0.3,
-},
-
-vaultStatusLoadingRow: {
-  flexDirection: 'row',
-  alignItems: 'center',
-},
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(242, 201, 76, 0.1)',
+    borderRadius: 999,
+    paddingVertical: 9,
+    paddingHorizontal: 13,
+    borderWidth: 1,
+    borderColor: 'rgba(242, 201, 76, 0.35)',
+    marginTop: 12,
+  },
+  vaultStatusPillSecured: {
+    backgroundColor: 'rgba(242, 201, 76, 0.16)',
+    borderColor: PRIMARY,
+  },
+  vaultStatusPillText: {
+    color: PRIMARY,
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.3,
+  },
+  vaultStatusLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  permanentLabel: {
+    color: PRIMARY,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 6,
+    marginBottom: 12,
+    letterSpacing: 0.4,
+  },
   title: {
     color: TEXT,
     fontSize: 31,
@@ -501,15 +447,6 @@ vaultStatusLoadingRow: {
     borderWidth: 1,
     borderColor: 'rgba(242,201,76,0.28)',
   },
-
-  permanentLabel: {
-  color: '#F2C94C',
-  fontSize: 12,
-  fontWeight: '700',
-  marginTop: 6,
-  marginBottom: 12,
-  letterSpacing: 0.4,
-},
   statusBadge: {
     alignSelf: 'flex-start',
     backgroundColor: BG,
@@ -560,13 +497,6 @@ vaultStatusLoadingRow: {
     fontSize: 14,
     fontWeight: '800',
   },
-  vaultStatusText: {
-    color: PRIMARY,
-    fontSize: 13,
-    fontWeight: '800',
-    marginTop: 6,
-    letterSpacing: 0.4,
-  },
   goldDivider: {
     width: 52,
     height: 3,
@@ -582,6 +512,14 @@ vaultStatusLoadingRow: {
     marginBottom: 16,
     borderWidth: 1,
     borderColor: 'rgba(242,201,76,0.14)',
+  },
+  certStatementLabel: {
+    color: PRIMARY,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1,
+    marginBottom: 8,
+    textTransform: 'uppercase',
   },
   certStatementText: {
     color: TEXT,
@@ -639,27 +577,6 @@ vaultStatusLoadingRow: {
     fontWeight: '900',
     letterSpacing: 0.8,
   },
-  storyCard: {
-    backgroundColor: 'rgba(16, 44, 71, 0.86)',
-    borderRadius: 22,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    marginBottom: 16,
-  },
-  sectionLabel: {
-    color: PRIMARY,
-    fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 1.2,
-    marginBottom: 12,
-  },
-  storyText: {
-    color: TEXT,
-    fontSize: 16,
-    lineHeight: 25,
-    fontWeight: '600',
-  },
   lockedCard: {
     backgroundColor: 'rgba(242, 201, 76, 0.1)',
     borderRadius: 22,
@@ -711,13 +628,5 @@ vaultStatusLoadingRow: {
     fontSize: 13,
     lineHeight: 20,
     textAlign: 'center',
-  },
-  hiddenCertificateWrap: {
-    position: 'absolute',
-    opacity: 0.01,
-    top: 0,
-    left: 0,
-    width: 390,
-    zIndex: -1,
   },
 });

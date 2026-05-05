@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  Dimensions,
   FlatList,
   Image,
   Modal,
@@ -51,7 +52,10 @@ const CARD = '#102C47';
 const TEXT = '#F5F7FA';
 const MUTED = '#A5B3C2';
 
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
 const PAGE_SIZE = 20;
+
 
 export default function MountsHomeScreen() {
   const router = useRouter();
@@ -67,7 +71,7 @@ export default function MountsHomeScreen() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [lastMountedAt, setLastMountedAt] = useState<string | null>(null);
-
+const highFiveScale = useRef(new Animated.Value(1)).current;
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [reactedCatchIds, setReactedCatchIds] = useState<Record<string, boolean>>({});
   const [shareItem, setShareItem] = useState<MountItem | null>(null);
@@ -302,6 +306,29 @@ export default function MountsHomeScreen() {
   }
 };
 
+const handleHighFive = async (catchId: string) => {
+  try {
+    Animated.sequence([
+      Animated.timing(highFiveScale, {
+        toValue: 1.15,
+        duration: 90,
+        useNativeDriver: true,
+      }),
+      Animated.spring(highFiveScale, {
+        toValue: 1,
+        friction: 4,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    await toggleReaction(catchId);
+  } catch (e) {
+    console.log('High five error', e);
+  }
+};
+
  const shareMount = async (item: MountItem) => {
   try {
     setShareItem(item);
@@ -469,29 +496,35 @@ export default function MountsHomeScreen() {
 
             {!!mountedDate && (
               <Text style={styles.mountedFooterDate}>
-                {`Mounted • ${mountedDate}`}
+                {` ${mountedDate}`}
               </Text>
             )}
           </View>
 
           <TouchableOpacity
-            style={[
-              styles.niceButton,
-              reactedCatchIds[item.id] && styles.niceButtonActive,
-            ]}
-            onPress={() => toggleReaction(item.id)}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.niceButtonEmoji}>👍</Text>
-            <Text
-              style={[
-                styles.niceButtonText,
-                reactedCatchIds[item.id] && styles.niceButtonTextActive,
-              ]}
-            >
-              {reactedCatchIds[item.id] ? 'Nice one ✓' : 'Nice one'}
-            </Text>
-          </TouchableOpacity>
+  activeOpacity={0.9}
+  onPress={() => handleHighFive(item.id)}
+>
+  <Animated.View
+    style={[
+      styles.niceButton,
+      reactedCatchIds[item.id] && styles.niceButtonActive,
+      {
+        transform: [{ scale: highFiveScale }],
+      },
+    ]}
+  >
+    <Text style={styles.niceButtonEmoji}>✋</Text>
+    <Text
+      style={[
+        styles.niceButtonText,
+        reactedCatchIds[item.id] && styles.niceButtonTextActive,
+      ]}
+    >
+      {reactedCatchIds[item.id] ? 'High Five ✓' : 'High Five'}
+    </Text>
+  </Animated.View>
+</TouchableOpacity>
         </View>
       </View>
 
@@ -637,38 +670,65 @@ export default function MountsHomeScreen() {
         </Animated.View>
       )}
 
-      <Modal visible={!!selectedMount} animationType="fade" transparent>
-        <View style={styles.fullscreenWrap}>
-          <TouchableOpacity
-            style={styles.fullscreenClose}
-            onPress={() => setSelectedMount(null)}
-          >
-            <Text style={styles.fullscreenCloseText}>Close</Text>
-          </TouchableOpacity>
+      <Modal visible={!!selectedMount} animationType="fade" transparent={false}>
+  <SafeAreaView style={styles.fullscreenWrap}>
+    <View style={styles.fullscreenTopBar}>
+      <TouchableOpacity
+        style={styles.fullscreenClose}
+        onPress={() => setSelectedMount(null)}
+      >
+        <Text style={styles.fullscreenCloseText}>Close</Text>
+      </TouchableOpacity>
+    </View>
 
-          {selectedMount && (
+    {selectedMount && (
+      <>
+        <ScrollView
+          style={styles.fullscreenImageScroll}
+          contentContainerStyle={styles.fullscreenImageContent}
+          maximumZoomScale={4}
+          minimumZoomScale={1}
+          bouncesZoom
+          pinchGestureEnabled
+          showsHorizontalScrollIndicator={false}
+          showsVerticalScrollIndicator={false}
+          centerContent
+        >
+          <Image
+            source={{ uri: getPublicImageUrl(selectedMount.image_url) }}
+            style={styles.fullscreenImage}
+            resizeMode="contain"
+          />
+        </ScrollView>
+
+        <View style={styles.fullscreenStoryPanel}>
+          {!!selectedMount.catch_date && (
+            <Text style={styles.fullscreenDate}>
+              {selectedMount.catch_date}
+            </Text>
+          )}
+
+          {!!(selectedMount.place_name || selectedMount.region_name) && (
+            <Text style={styles.fullscreenLocation}>
+              {selectedMount.place_name || selectedMount.region_name}
+            </Text>
+          )}
+
+          {!!selectedMount.note && (
             <ScrollView
-              style={styles.fullscreenZoomScroll}
-              contentContainerStyle={styles.fullscreenZoomContent}
-              maximumZoomScale={4}
-              minimumZoomScale={1}
-              bouncesZoom
-              pinchGestureEnabled
-              showsHorizontalScrollIndicator={false}
-              showsVerticalScrollIndicator={false}
-              centerContent
+              style={styles.fullscreenStoryScroll}
+              showsVerticalScrollIndicator
             >
-              <Image
-                source={{
-                  uri: getPublicImageUrl(selectedMount.image_url),
-                }}
-                style={styles.fullscreenImage}
-                resizeMode="contain"
-              />
+              <Text style={styles.fullscreenStory}>
+                {selectedMount.note}
+              </Text>
             </ScrollView>
           )}
         </View>
-      </Modal>
+      </>
+    )}
+  </SafeAreaView>
+</Modal>
 
       <View style={styles.hiddenShareWrap} pointerEvents="none">
         {shareItem && (
@@ -1268,44 +1328,102 @@ image: {
   },
 
   fullscreenWrap: {
-    flex: 1,
-    backgroundColor: BG,
-  },
+  flex: 1,
+  backgroundColor: BG,
+},
 
-  fullscreenZoomScroll: {
-    flex: 1,
-    backgroundColor: BG,
-  },
 
-  fullscreenZoomContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: BG,
-  },
 
-  fullscreenImage: {
-    width: '100%',
-    height: '100%',
-  },
 
-  fullscreenClose: {
-    position: 'absolute',
-    top: 54,
-    right: 20,
-    zIndex: 10,
-    backgroundColor: 'rgba(8,30,51,0.85)',
-    borderRadius: 999,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(242,201,76,0.45)',
-  },
+fullscreenImage: {
+  width: SCREEN_WIDTH,
+  height: SCREEN_HEIGHT * 0.62,
+  backgroundColor: '#000',
+},
 
-  fullscreenCloseText: {
-    color: TEXT,
-    fontWeight: '800',
-  },
+fullscreenClose: {
+  backgroundColor: 'rgba(8,30,51,0.95)',
+  borderRadius: 999,
+  paddingVertical: 10,
+  paddingHorizontal: 14,
+  borderWidth: 1,
+  borderColor: 'rgba(242,201,76,0.45)',
+},
+
+
+fullscreenCloseText: {
+  color: TEXT,
+  fontWeight: '900',
+},
+
+
+
+fullscreenDate: {
+  color: TEXT,
+  fontSize: 13,
+  fontWeight: '900',
+  marginBottom: 4,
+},
+
+fullscreenLocation: {
+  color: PRIMARY,
+  fontSize: 14,
+  fontWeight: '900',
+  marginBottom: 10,
+},
+
+
+
+fullscreenStory: {
+  color: TEXT,
+  fontSize: 15,
+  lineHeight: 23,
+  fontWeight: '700',
+},
+
+
+
+fullscreenTopBar: {
+  height: 56,
+  justifyContent: 'center',
+  alignItems: 'flex-end',
+  paddingHorizontal: 16,
+  backgroundColor: BG,
+  zIndex: 20,
+},
+
+
+
+
+fullscreenImageScroll: {
+  flex: 1,
+  backgroundColor: '#000',
+},
+
+fullscreenImageContent: {
+  minHeight: SCREEN_HEIGHT * 0.62,
+  justifyContent: 'center',
+  alignItems: 'center',
+},
+
+
+fullscreenStoryPanel: {
+  maxHeight: SCREEN_HEIGHT * 0.32,
+  backgroundColor: CARD,
+  borderTopLeftRadius: 22,
+  borderTopRightRadius: 22,
+  paddingHorizontal: 18,
+  paddingTop: 16,
+  paddingBottom: 22,
+  borderTopWidth: 1,
+  borderTopColor: 'rgba(255,255,255,0.1)',
+},
+
+fullscreenStoryScroll: {
+  marginTop: 4,
+},
+
+
 
   hiddenShareWrap: {
     position: 'absolute',

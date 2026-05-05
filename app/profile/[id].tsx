@@ -21,6 +21,7 @@ type MountItem = {
   note?: string | null;
   place_name?: string | null;
   region_name?: string | null;
+  is_vaulted?: boolean | null;
   mounted_at?: string | null;
   catch_date?: string | null;
   is_personal_best?: boolean | null;
@@ -51,6 +52,8 @@ export default function PublicProfileScreen() {
   const [mounts, setMounts] = useState<MountItem[]>([]);
   const [selectedMount, setSelectedMount] = useState<MountItem | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [vaultedCount, setVaultedCount] = useState(0);
+  const [highFiveCount, setHighFiveCount] = useState(0);
 
   const getPublicImageUrl = (value?: string | null) => {
     if (!value) return '';
@@ -75,14 +78,13 @@ export default function PublicProfileScreen() {
       .eq('id', id)
       .single();
 
-   if (profileError) {
-  console.log('Public profile load error:', profileError);
-  console.log('Trying to load profile for user id:', id);
-  setProfile(null);
-} else {
-  console.log('Loaded public profile:', profileData);
-  setProfile(profileData as ProfileItem);
-}
+    if (profileError) {
+      console.log('Public profile load error:', profileError);
+      console.log('Trying to load profile for user id:', id);
+      setProfile(null);
+    } else {
+      setProfile(profileData as ProfileItem);
+    }
 
     const { data: mountsData, error: mountsError } = await supabase
       .from('catches')
@@ -94,18 +96,41 @@ export default function PublicProfileScreen() {
     if (mountsError) {
       console.log('Public profile mounts load error:', mountsError);
       setMounts([]);
+      setVaultedCount(0);
+      setHighFiveCount(0);
       return;
     }
 
-    setMounts((mountsData || []) as MountItem[]);
+    const publicMounts = (mountsData || []) as MountItem[];
+    setMounts(publicMounts);
+
+    const vaultedTotal = publicMounts.filter((item) => item.is_vaulted).length;
+    setVaultedCount(vaultedTotal);
+
+    const catchIds = publicMounts.map((item) => item.id);
+
+    if (catchIds.length > 0) {
+      const { count: highFiveTotal, error: highFiveError } = await supabase
+        .from('catch_reactions')
+        .select('*', { count: 'exact', head: true })
+        .in('catch_id', catchIds);
+
+      if (!highFiveError) {
+        setHighFiveCount(highFiveTotal || 0);
+      } else {
+        setHighFiveCount(0);
+      }
+    } else {
+      setHighFiveCount(0);
+    }
   };
 
   useFocusEffect(
-  useCallback(() => {
-    if (!id) return;
-    loadProfile();
-  }, [id])
-);
+    useCallback(() => {
+      if (!id) return;
+      loadProfile();
+    }, [id])
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -114,9 +139,9 @@ export default function PublicProfileScreen() {
   };
 
   const displayName =
-  profile?.display_name ||
-  profile?.username ||
-  (id ? `Angler ${id.slice(0, 4)}` : 'Angler');
+    profile?.display_name ||
+    profile?.username ||
+    (id ? `Angler ${id.slice(0, 4)}` : 'Angler');
 
   const username = profile?.username ? `@${profile.username}` : '';
 
@@ -212,6 +237,16 @@ export default function PublicProfileScreen() {
                   <Text style={styles.statNumber}>{pbCount}</Text>
                   <Text style={styles.statLabel}>PBs</Text>
                 </View>
+
+                <View style={styles.statBox}>
+                  <Text style={styles.statNumber}>{vaultedCount}</Text>
+                  <Text style={styles.statLabel}>Vaulted</Text>
+                </View>
+
+                <View style={styles.statBox}>
+                  <Text style={styles.statNumber}>{highFiveCount}</Text>
+                  <Text style={styles.statLabel}>High Fives</Text>
+                </View>
               </View>
             </View>
 
@@ -249,9 +284,7 @@ export default function PublicProfileScreen() {
 
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>ReelWall</Text>
-              <Text style={styles.sectionSubtitle}>
-                Their mounted moments
-              </Text>
+              <Text style={styles.sectionSubtitle}>Their mounted moments</Text>
             </View>
           </>
         }
@@ -373,29 +406,32 @@ const styles = StyleSheet.create({
 
   statsRow: {
     flexDirection: 'row',
-    gap: 12,
+    justifyContent: 'space-between',
+    gap: 8,
     marginTop: 18,
+    width: '100%',
   },
 
   statBox: {
-    width: 120,
+    flex: 1,
     backgroundColor: CARD,
-    borderRadius: 18,
-    paddingVertical: 14,
+    borderRadius: 14,
+    paddingVertical: 9,
     alignItems: 'center',
   },
 
   statNumber: {
     color: PRIMARY,
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: '900',
   },
 
   statLabel: {
     color: MUTED,
-    fontSize: 12,
+    fontSize: 9,
     fontWeight: '700',
-    marginTop: 4,
+    marginTop: 3,
+    textAlign: 'center',
   },
 
   infoCard: {

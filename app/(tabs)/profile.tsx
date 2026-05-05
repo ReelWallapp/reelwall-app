@@ -5,13 +5,13 @@ import { router } from 'expo-router';
 
 import { useCallback, useEffect, useState } from 'react';
 import {
-    Alert,
-    Image,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Alert,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ensureProfileExistsAndSyncLocal } from '../../lib/profile-sync';
@@ -45,7 +45,8 @@ export default function Profile() {
   const [catchCount, setCatchCount] = useState(0);
   const [pbCount, setPbCount] = useState(0);
   const [collectionCount, setCollectionCount] = useState(0);
-
+  const [vaultedCount, setVaultedCount] = useState(0);
+  const [highFiveCount, setHighFiveCount] = useState(0);
   const [name, setName] = useState('Your ReelWall');
   const [profilePhotoUri, setProfilePhotoUri] = useState<string | null>(null);
 
@@ -62,39 +63,71 @@ export default function Profile() {
   const [showPrivacyScreen, setShowPrivacyScreen] = useState(false);
 
   const loadStats = async () => {
-    try {
-      const savedCatches = await AsyncStorage.getItem(STORAGE_KEY);
-      const catches: CatchItem[] = savedCatches ? JSON.parse(savedCatches) : [];
+  try {
+    const savedCatches = await AsyncStorage.getItem(STORAGE_KEY);
+    const catches: CatchItem[] = savedCatches ? JSON.parse(savedCatches) : [];
 
-      setCatchCount(catches.length);
-      setPbCount(catches.filter((c) => c.isPersonalBest).length);
+    setCatchCount(catches.length);
+    setPbCount(catches.filter((c) => c.isPersonalBest).length);
 
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-      if (userError || !user) {
-        setCollectionCount(0);
-        return;
-      }
-
-      const { count, error: collectionsError } = await supabase
-        .from('collections')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id);
-
-      if (collectionsError) {
-        console.log('Profile collections count load error:', collectionsError);
-        setCollectionCount(0);
-        return;
-      }
-
-      setCollectionCount(count || 0);
-    } catch (error) {
-      console.log('Profile stats load error:', error);
+    if (userError || !user) {
+      setCollectionCount(0);
+      setVaultedCount(0);
+      setHighFiveCount(0);
+      return;
     }
-  };
+
+    const { count: vaultedTotal, error: vaultError } = await supabase
+      .from('vault_records')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id);
+
+    if (!vaultError) {
+      setVaultedCount(vaultedTotal || 0);
+    }
+
+    const { data: userCatches, error: catchesError } = await supabase
+      .from('catches')
+      .select('id')
+      .eq('user_id', user.id);
+
+    if (!catchesError && userCatches && userCatches.length > 0) {
+      const catchIds = userCatches.map((item) => item.id);
+
+      const { count: highFiveTotal, error: highFiveError } = await supabase
+  .from('catch_reactions')
+  .select('*', { count: 'exact', head: true })
+  .in('catch_id', catchIds)
+  .neq('user_id', user.id);
+
+      if (!highFiveError) {
+        setHighFiveCount(highFiveTotal || 0);
+      }
+    } else {
+      setHighFiveCount(0);
+    }
+
+    const { count, error: collectionsError } = await supabase
+      .from('collections')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id);
+
+    if (collectionsError) {
+      console.log('Profile collections count load error:', collectionsError);
+      setCollectionCount(0);
+      return;
+    }
+
+    setCollectionCount(count || 0);
+  } catch (error) {
+    console.log('Profile stats load error:', error);
+  }
+};
 
   const loadName = async () => {
     try {
@@ -489,21 +522,26 @@ const handleDeleteAccount = () => {
         </View>
 
         <View style={styles.statsRow}>
-          <View style={styles.statBox}>
-            <Text style={styles.statNumber}>{catchCount}</Text>
-            <Text style={styles.statLabel}>Wall Shots</Text>
-          </View>
+  <View style={styles.statBox}>
+    <Text style={styles.statNumber}>{catchCount}</Text>
+    <Text style={styles.statLabel}>Mounts</Text>
+  </View>
 
-          <View style={styles.statBox}>
-            <Text style={styles.statNumber}>{pbCount}</Text>
-            <Text style={styles.statLabel}>PBs</Text>
-          </View>
+  <View style={styles.statBox}>
+    <Text style={styles.statNumber}>{pbCount}</Text>
+    <Text style={styles.statLabel}>PBs</Text>
+  </View>
 
-          <View style={styles.statBox}>
-            <Text style={styles.statNumber}>{collectionCount}</Text>
-            <Text style={styles.statLabel}>Collections</Text>
-          </View>
-        </View>
+  <View style={styles.statBox}>
+    <Text style={styles.statNumber}>{vaultedCount}</Text>
+    <Text style={styles.statLabel}>Vaulted</Text>
+  </View>
+
+  <View style={styles.statBox}>
+    <Text style={styles.statNumber}>{highFiveCount}</Text>
+    <Text style={styles.statLabel}>High Fives</Text>
+  </View>
+</View>
 
         <View style={styles.infoCard}>
           <Text style={styles.infoTitle}>About you the Angler</Text>
@@ -692,25 +730,23 @@ logoutPrimaryText: {
     fontWeight: '700',
     fontSize: 12,
   },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-    marginBottom: 20,
-  },
+ statsRow: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  marginBottom: 20,
+},
   statBox: {
-    flex: 1,
-    backgroundColor: '#102C47',
-    borderRadius: 18,
-    paddingVertical: 16,
-    paddingHorizontal: 12,
-    alignItems: 'center',
-  },
+  width: '23%',
+  backgroundColor: '#102C47',
+  borderRadius: 14,
+  paddingVertical: 10,
+  alignItems: 'center',
+},
   statNumber: {
-    color: '#F2C94C',
-    fontSize: 24,
-    fontWeight: '800',
-  },
+  color: '#F2C94C',
+  fontSize: 18,
+  fontWeight: '800',
+},
 logoutRow: {
   flexDirection: 'row',
   justifyContent: 'space-between',
@@ -724,11 +760,11 @@ logoutText: {
   fontWeight: '700',
 },
   statLabel: {
-    color: '#A5B3C2',
-    fontSize: 12,
-    fontWeight: '700',
-    marginTop: 4,
-  },
+  color: '#A5B3C2',
+  fontSize: 10,
+  fontWeight: '700',
+  marginTop: 2,
+},
   infoTitle: {
     color: '#F5F7FA',
     fontSize: 18,

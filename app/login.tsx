@@ -141,8 +141,8 @@ export default function LoginScreen() {
                 disabled={loading}
               >
                 <Text style={styles.demoButtonText}>
-                  Explore without an account
-                </Text>
+  Continue as Demo User
+</Text>
               </TouchableOpacity>
             </>
           ) : (

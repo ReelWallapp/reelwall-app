@@ -1,5 +1,6 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { useCallback, useRef, useState } from 'react';
@@ -16,7 +17,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import ViewShot from 'react-native-view-shot';
 import { supabase } from '../../lib/supabase';
@@ -31,6 +32,7 @@ type MountItem = {
   mounted_at?: string | null;
   catch_date?: string | null;
   is_personal_best?: boolean | null;
+  is_vaulted?: boolean | null;
   user_id?: string | null;
 };
 
@@ -300,38 +302,38 @@ export default function MountsHomeScreen() {
   }
 };
 
-  const shareMount = async (item: MountItem) => {
-    try {
-      setShareItem(item);
+ const shareMount = async (item: MountItem) => {
+  try {
+    setShareItem(item);
 
-      await new Promise((resolve) => setTimeout(resolve, 700));
+    await new Promise((resolve) => setTimeout(resolve, 700));
 
-      const imageUri = await (shareCardRef.current as any)?.capture?.();
+    const imageUri = await (shareCardRef.current as any)?.capture?.();
 
-      if (!imageUri) {
-        Alert.alert('Could not prepare share image');
-        return;
-      }
-
-      const canShare = await Sharing.isAvailableAsync();
-
-      if (!canShare) {
-        Alert.alert('Sharing is not available on this device');
-        return;
-      }
-
-      await Sharing.shareAsync(imageUri, {
-        mimeType: 'image/jpeg',
-        UTI: 'public.jpeg',
-        dialogTitle: 'Share this ReelWall mount',
-      });
-    } catch (error: any) {
-      console.log('Share mount error:', error);
-      Alert.alert('Could not share this mount', error?.message || 'Try again');
-    } finally {
-      setShareItem(null);
+    if (!imageUri) {
+      Alert.alert('Could not prepare share image');
+      return;
     }
-  };
+
+    const canShare = await Sharing.isAvailableAsync();
+
+    if (!canShare) {
+      Alert.alert('Sharing is not available on this device');
+      return;
+    }
+
+    await Sharing.shareAsync(imageUri, {
+      mimeType: 'image/jpeg',
+      UTI: 'public.jpeg',
+      dialogTitle: 'Share this ReelWall mount',
+    });
+  } catch (error: any) {
+    console.log('Share mount error:', error);
+    Alert.alert('Could not share this mount', error?.message || 'Try again');
+  } finally {
+    setShareItem(null);
+  }
+};
 
   const renderMount = ({ item }: { item: MountItem }) => {
     const imageUrl = getPublicImageUrl(item.image_url);
@@ -344,118 +346,158 @@ export default function MountsHomeScreen() {
     const avatarUrl = profile?.avatar_url || '';
 
     return (
-      <View style={styles.card}>
-        <View style={styles.cardHeader}>
-          <View style={{ flex: 1 }} />
+  <LinearGradient
+    colors={
+      item.is_vaulted
+        ? ['rgba(242,201,76,0.95)', 'rgba(201,164,58,0.45)', 'rgba(242,201,76,0.18)']
+        : ['transparent', 'transparent']
+    }
+    start={{ x: 0, y: 0 }}
+    end={{ x: 1, y: 1 }}
+    style={[
+      styles.cardGradientWrap,
+      item.is_vaulted && styles.vaultedCardGradientWrap,
+    ]}
+  >
+    <View style={styles.card}>
 
-          <TouchableOpacity
-            onPress={() => {
-              if (item.user_id) {
-                router.push(`/profile/${item.user_id}`);
-              }
-            }}
-            activeOpacity={0.8}
-            style={styles.userBlock}
-          >
-            {avatarUrl ? (
-              <Image
-                source={{ uri: getPublicImageUrl(avatarUrl) }}
-                style={styles.avatarSmall}
-              />
-            ) : (
-              <View style={styles.avatarFallback}>
-                <Text style={styles.avatarInitial}>
-                  {getInitial(profileName)}
-                </Text>
-              </View>
-            )}
-
-            <Text style={styles.username} numberOfLines={1}>
-              {profileName}
-            </Text>
-          </TouchableOpacity>
+      {/* HEADER */}
+      <View style={styles.cardHeader}>
+        <View style={styles.headerLeft}>
+          {item.is_vaulted && (
+            <View style={styles.headerVaultBadge}>
+              <Text style={styles.headerVaultText}>🔒 VAULTED</Text>
+            </View>
+          )}
         </View>
 
-        {!!imageUrl && (
-          <View style={styles.imageWrap}>
-            <TouchableOpacity
-              activeOpacity={0.92}
-              onPress={() => setSelectedMount(item)}
-            >
-              <Image
-                source={{ uri: imageUrl }}
-                style={styles.image}
-                resizeMode="cover"
-              />
-            </TouchableOpacity>
-
-            <View style={styles.imageTrophyBadge}>
-              <MaterialIcons name="emoji-events" size={18} color={PRIMARY} />
+        <TouchableOpacity
+          onPress={() => {
+            if (item.user_id) {
+              router.push(`/profile/${item.user_id}`);
+            }
+          }}
+          activeOpacity={0.8}
+          style={styles.userBlock}
+        >
+          {avatarUrl ? (
+            <Image
+              source={{ uri: getPublicImageUrl(avatarUrl) }}
+              style={styles.avatarSmall}
+            />
+          ) : (
+            <View style={styles.avatarFallback}>
+              <Text style={styles.avatarInitial}>
+                {getInitial(profileName)}
+              </Text>
             </View>
+          )}
 
-            <TouchableOpacity
-              style={styles.shareButton}
-              onPress={() => shareMount(item)}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.shareIcon}>↗</Text>
-            </TouchableOpacity>
+          <Text style={styles.username} numberOfLines={1}>
+            {profileName}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* IMAGE */}
+      {!!imageUrl && (
+        <View style={styles.imageWrap}>
+          <TouchableOpacity
+            activeOpacity={0.92}
+            onPress={() => setSelectedMount(item)}
+          >
+            <Image
+              source={{ uri: imageUrl }}
+              style={styles.image}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
+
+          {item.is_vaulted && (
+  <LinearGradient
+    colors={['transparent', 'rgba(255,255,255,0.15)', 'transparent']}
+    start={{ x: 0, y: 0 }}
+    end={{ x: 1, y: 1 }}
+    style={{
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+    }}
+  />
+)}
+
+          <TouchableOpacity
+            style={styles.shareButton}
+            onPress={() => shareMount(item)}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.shareIcon}>↗</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* BODY */}
+      <View
+        style={[
+          styles.cardBody,
+          item.is_vaulted && styles.vaultedCardBody,
+        ]}
+      >
+        {item.is_personal_best && (
+          <View style={styles.pbBadge}>
+            <Text style={styles.pbText}>★ Personal Best</Text>
           </View>
         )}
 
-        <View style={styles.cardBody}>
-          {item.is_personal_best && (
-            <View style={styles.pbBadge}>
-              <Text style={styles.pbText}>★ Personal Best</Text>
-            </View>
-          )}
+        {!!catchDate && <Text style={styles.catchDate}>{catchDate}</Text>}
+        {!!location && <Text style={styles.location}>{location}</Text>}
 
-          {!!catchDate && <Text style={styles.catchDate}>{catchDate}</Text>}
+        {!!item.note && (
+          <Text style={styles.note} numberOfLines={3}>
+            {item.note}
+          </Text>
+        )}
 
-          {!!location && <Text style={styles.location}>{location}</Text>}
-
-          {!!item.note && (
-            <Text style={styles.note} numberOfLines={3}>
-              {item.note}
-            </Text>
-          )}
-
-          <View style={styles.cardFooterRow}>
-            <View style={styles.footerLeft}>
-              <View style={styles.mountedFooterRow}>
-                <MaterialIcons name="emoji-events" size={15} color={PRIMARY} />
-                <Text style={styles.mountedFooterText}>Mounted on ReelWall</Text>
-              </View>
-
-              {!!mountedDate && (
-                <Text style={styles.mountedFooterDate}>
-                  {`Mounted • ${mountedDate}`}
-                </Text>
-              )}
+        <View style={styles.cardFooterRow}>
+          <View style={styles.footerLeft}>
+            <View style={styles.mountedFooterRow}>
+              <MaterialIcons name="emoji-events" size={15} color={PRIMARY} />
+              <Text style={styles.mountedFooterText}>Mounted on ReelWall</Text>
             </View>
 
-            <TouchableOpacity
-  style={[
-    styles.niceButton,
-    reactedCatchIds[item.id] && styles.niceButtonActive,
-  ]}
-  onPress={() => toggleReaction(item.id)}
-  activeOpacity={0.8}
->
-  <Text style={styles.niceButtonEmoji}>👍</Text>
-  <Text
-    style={[
-      styles.niceButtonText,
-      reactedCatchIds[item.id] && styles.niceButtonTextActive,
-    ]}
-  >
-    {reactedCatchIds[item.id] ? 'Nice one ✓' : 'Nice one'}
-  </Text>
-</TouchableOpacity>
+            {!!mountedDate && (
+              <Text style={styles.mountedFooterDate}>
+                {`Mounted • ${mountedDate}`}
+              </Text>
+            )}
           </View>
+
+          <TouchableOpacity
+            style={[
+              styles.niceButton,
+              reactedCatchIds[item.id] && styles.niceButtonActive,
+            ]}
+            onPress={() => toggleReaction(item.id)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.niceButtonEmoji}>👍</Text>
+            <Text
+              style={[
+                styles.niceButtonText,
+                reactedCatchIds[item.id] && styles.niceButtonTextActive,
+              ]}
+            >
+              {reactedCatchIds[item.id] ? 'Nice one ✓' : 'Nice one'}
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
-    );
+
+    </View>
+  </LinearGradient>
+);
   };
 
   const shareLocation = shareItem?.place_name || shareItem?.region_name || '';
@@ -630,62 +672,64 @@ export default function MountsHomeScreen() {
 
       <View style={styles.hiddenShareWrap} pointerEvents="none">
         {shareItem && (
-          <ViewShot
-            ref={shareCardRef}
-            options={{
-              format: 'jpg',
-              quality: 0.95,
-              fileName: `reelwall-share-${shareItem.id}`,
-            }}
-          >
-            <View style={styles.shareCardPremium}>
-              <Image
-                source={{ uri: getPublicImageUrl(shareItem.image_url) }}
-                style={styles.shareCardPremiumImage}
-                resizeMode="cover"
-              />
+         <ViewShot
+  ref={shareCardRef}
+  options={{
+    format: 'jpg',
+    quality: 0.95,
+    fileName: `reelwall-share-${shareItem.id}`,
+  }}
+>
+  <View style={styles.shareCardPremium}>
+    <View style={styles.shareImageWrap}>
+      <Image
+        source={{ uri: getPublicImageUrl(shareItem.image_url) }}
+        style={styles.shareCardPremiumImage}
+        resizeMode="contain"
+      />
+    </View>
 
-              <View style={styles.shareCardGradient} />
+    <View style={styles.shareCardGradient} />
 
-              {shareItem.is_personal_best && (
-                <View style={styles.shareCardPbBadge}>
-                  <Text style={styles.shareCardPbText}>★ PERSONAL BEST</Text>
-                </View>
-              )}
+    {shareItem.is_personal_best && (
+      <View style={styles.shareCardPbBadge}>
+        <Text style={styles.shareCardPbText}>★ PERSONAL BEST</Text>
+      </View>
+    )}
 
-              <View style={styles.shareCardPremiumMeta}>
-                {shareItem.catch_date ? (
-                  <Text style={styles.shareCardPremiumDate}>
-                    {shareItem.catch_date}
-                  </Text>
-                ) : null}
+    <View style={styles.shareCardPremiumMeta}>
+      {shareItem.catch_date ? (
+        <Text style={styles.shareCardPremiumDate}>
+          {shareItem.catch_date}
+        </Text>
+      ) : null}
 
-                {shareLocation ? (
-                  <Text style={styles.shareCardPremiumLocation}>
-                    {shareLocation}
-                  </Text>
-                ) : null}
+      {shareLocation ? (
+        <Text style={styles.shareCardPremiumLocation}>
+          {shareLocation}
+        </Text>
+      ) : null}
 
-                <View style={styles.shareCardDivider} />
+      <View style={styles.shareCardDivider} />
 
-                <Text
-                  numberOfLines={5}
-                  style={[
-                    styles.shareCardPremiumNote,
-                    { fontSize: getNoteFontSize(shareItem?.note) },
-                  ]}
-                >
-                  {shareItem.note?.trim() || 'A catch worth sharing.'}
-                </Text>
-              </View>
+      <Text
+        numberOfLines={5}
+        style={[
+          styles.shareCardPremiumNote,
+          { fontSize: getNoteFontSize(shareItem?.note) },
+        ]}
+      >
+        {shareItem.note?.trim() || 'A catch worth sharing.'}
+      </Text>
+    </View>
 
-              <View style={styles.shareCardBottomBrand}>
-                <Text style={styles.shareCardBottomBrandText}>
-                  Mounted on ReelWall
-                </Text>
-              </View>
-            </View>
-          </ViewShot>
+    <View style={styles.shareCardBottomBrand}>
+      <Text style={styles.shareCardBottomBrandText}>
+        Mounted on ReelWall
+      </Text>
+    </View>
+  </View>
+</ViewShot>
         )}
       </View>
     </SafeAreaView>
@@ -701,6 +745,85 @@ const styles = StyleSheet.create({
   content: {
     paddingBottom: 120,
   },
+headerLeft: {
+  flex: 1,
+  justifyContent: 'center',
+},
+
+shareImageWrap: {
+  width: '100%',
+  height: '100%',
+  backgroundColor: '#081E33', // 🔥 forces blue behind image
+  justifyContent: 'center',
+  alignItems: 'center',
+},
+
+cardGradientWrap: {
+  marginHorizontal: 18,
+  marginTop: 18,
+  marginBottom: 18,
+  borderRadius: 26,
+  padding: 0,
+},
+
+vaultedCardGradientWrap: {
+  padding: 2,
+  shadowColor: '#000',
+  shadowOpacity: 0.28,
+  shadowRadius: 12,
+  shadowOffset: { width: 0, height: 6 },
+  elevation: 7,
+},
+
+headerVaultBadge: {
+  alignSelf: 'flex-start',
+  backgroundColor: '#081E33', // dark navy
+  borderRadius: 999,
+  paddingVertical: 6,
+  paddingHorizontal: 12,
+  borderWidth: 1,
+  borderColor: '#F2C94C',
+  shadowColor: '#F2C94C',
+  shadowOpacity: 0.25,
+  shadowRadius: 6,
+  shadowOffset: { width: 0, height: 0 },
+  elevation: 3,
+},
+
+headerVaultText: {
+  color: '#F2C94C', // gold text
+  fontSize: 10,
+  fontWeight: '900',
+  letterSpacing: 1.2,
+},
+
+vaultedMountCard: {
+  // kept for compatibility, no longer used for the main gold effect
+},
+vaultedCardBody: {
+  backgroundColor: 'rgba(242,201,76,0.08)',
+  borderTopWidth: 1,
+  borderTopColor: 'rgba(242,201,76,0.18)',
+},
+vaultedRecordBadge: {
+  position: 'absolute',
+  top: 12,
+  left: 12,
+  backgroundColor: 'rgba(8,30,51,0.92)',
+  borderRadius: 999,
+  paddingVertical: 6,
+  paddingHorizontal: 10,
+  borderWidth: 1,
+  borderColor: 'rgba(242,201,76,0.85)',
+  zIndex: 6,
+},
+
+vaultedRecordBadgeText: {
+  color: '#F2C94C',
+  fontSize: 10,
+  fontWeight: '900',
+  letterSpacing: 1.2,
+},
 
   topHeader: {
     alignItems: 'center',
@@ -884,14 +1007,11 @@ niceButtonTextActive: {
     opacity: 0.6,
   },
 
-  card: {
-    backgroundColor: CARD,
-    borderRadius: 24,
-    overflow: 'hidden',
-    marginHorizontal: 18,
-    marginTop: 18,
-    marginBottom: 18,
-  },
+card: {
+  backgroundColor: CARD,
+  borderRadius: 24,
+  overflow: 'hidden',
+},
 
   cardHeader: {
     paddingHorizontal: 14,
@@ -948,15 +1068,20 @@ niceButtonTextActive: {
   },
 
   imageWrap: {
-    position: 'relative',
-    backgroundColor: BG,
-  },
+  marginHorizontal: 12,
+  marginBottom: 12,
+  borderRadius: 18,
+  overflow: 'hidden',
+  backgroundColor: '#081E33',
+  padding: 10,
+},
 
-  image: {
-    width: '100%',
-    height: 320,
-    backgroundColor: BG,
-  },
+image: {
+  width: '100%',
+  height: 320,
+  backgroundColor: '#081E33',
+  borderRadius: 14,
+},
 
   imageTrophyBadge: {
     position: 'absolute',
@@ -1190,17 +1315,16 @@ niceButtonTextActive: {
   },
 
   shareCardPremium: {
-    width: '100%',
-    aspectRatio: 4 / 5,
-    overflow: 'hidden',
-    backgroundColor: BG,
-    position: 'relative',
-  },
-
+  width: '100%',
+  aspectRatio: 4 / 5,
+  overflow: 'hidden',
+  backgroundColor: BG,
+  position: 'relative',
+},
   shareCardPremiumImage: {
     width: '100%',
     height: '100%',
-    backgroundColor: BG,
+    
   },
 
   shareCardGradient: {

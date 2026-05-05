@@ -125,21 +125,33 @@ export default function TabLayout() {
           ),
         }}
       />
-
-      <Tabs.Screen
-        name="vault"
-        options={{
-          title: 'Vault',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? 'shield-checkmark' : 'shield-checkmark-outline'}
-              size={20}
-              color={color}
-              style={styles.tabIcon}
-            />
-          ),
-        }}
+<Tabs.Screen
+  name="vault/index"
+  options={{
+    title: 'Vault',
+    tabBarIcon: ({ color, focused }) => (
+      <Ionicons
+        name={focused ? 'shield-checkmark' : 'shield-checkmark-outline'}
+        size={20}
+        color={color}
       />
+    ),
+  }}
+/>
+
+
+
+<Tabs.Screen
+  name="vault/[recordId]/qr"
+  options={{
+    href: null,
+  }}
+/>
+<Tabs.Screen
+  name="vault/[recordId]/index"
+  options={{ href: null }}
+/>
+
 
       <Tabs.Screen
         name="profile"

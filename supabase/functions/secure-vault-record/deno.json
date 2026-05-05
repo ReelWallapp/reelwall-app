@@ -1,0 +1,7 @@
+{
+  "imports": {
+    "@irys/upload": "npm:@irys/upload",
+    "@irys/upload-solana": "npm:@irys/upload-solana",
+    "supabase": "npm:@supabase/supabase-js@2"
+  }
+}

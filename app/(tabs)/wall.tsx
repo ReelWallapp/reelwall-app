@@ -70,6 +70,8 @@ export default function Home() {
     }
   };
 
+  
+
   const saveDeletedCatchIds = async (ids: string[]) => {
     await AsyncStorage.setItem(DELETED_CATCH_IDS_KEY, JSON.stringify(ids));
   };
@@ -428,6 +430,7 @@ useFocusEffect(
   }
 };
 
+
   const deleteCatch = () => {
     if (!selectedCatch) return;
 
@@ -544,10 +547,10 @@ useFocusEffect(
                 <Text style={styles.sectionTitle}>Latest Catch</Text>
 
                 <TouchableOpacity
-                  activeOpacity={0.9}
-                  onPress={() => setFullscreenCatch(latest)}
-                  style={styles.featuredCard}
-                >
+  activeOpacity={0.9}
+  onPress={() => setFullscreenCatch(latest)}
+  style={styles.featuredCard}
+>
                   <Image
                     source={{ uri: latest.uri }}
                     style={styles.featuredImage}
@@ -575,12 +578,23 @@ useFocusEffect(
                       </View>
                     )}
 
-                    {latest.isVaulted && (
-                      <View style={styles.vaultBadge}>
-                        <Text style={styles.vaultIcon}>🔒</Text>
-                        <Text style={styles.vaultText}>LiveWell Vault</Text>
-                      </View>
-                    )}
+                 {latest.isVaulted && (
+  <View style={{
+    position: 'absolute',
+    top: 48,
+    left: 16,
+    backgroundColor: 'rgba(8,30,51,0.92)',
+    borderRadius: 999,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: '#F2C94C',
+  }}>
+    <Text style={{ color: '#F2C94C', fontSize: 11, fontWeight: '900' }}>
+      🔒 VAULTED
+    </Text>
+  </View>
+)}
 
                     {getDisplayedDate(latest) ? (
                       <Text style={styles.featuredDate}>{getDisplayedDate(latest)}</Text>
@@ -651,11 +665,12 @@ useFocusEffect(
                         )}
 
                         {item.isVaulted && (
-                          <View style={styles.cardVaultBadge}>
-                            <Text style={styles.cardVaultIcon}>🔒</Text>
-                            <Text style={styles.cardVaultText}>Vault</Text>
-                          </View>
-                        )}
+  <View style={styles.cardVaultBadge}>
+    <Text style={{ color: '#F2C94C', fontSize: 10, fontWeight: '900' }}>
+      🔒 VAULTED
+    </Text>
+  </View>
+)}
 
                         <View style={styles.imageMeta}>
                           {getDisplayedDate(item) ? (
@@ -897,34 +912,67 @@ useFocusEffect(
                   </View>
 
                   <View style={styles.mountActionCard}>
-                    <View style={styles.mountActionHeader}>
-                      <View style={styles.mountIconCircle}>
-                        <Ionicons name="trophy" size={20} color="#0A2540" />
-                      </View>
+  <View style={styles.mountActionHeader}>
+    <View style={styles.mountIconCircle}>
+      <Ionicons name="trophy" size={20} color="#0A2540" />
+    </View>
 
-                      <View style={styles.mountActionCopy}>
-                        <Text style={styles.mountActionTitle}>Ready for the wall?</Text>
-                        <Text style={styles.mountActionText}>
-                          Share this catch to ReelWall as a mounted trophy.
-                        </Text>
-                      </View>
-                    </View>
+    <View style={styles.mountActionCopy}>
+      <Text style={styles.mountActionTitle}>Ready for the wall?</Text>
+      <Text style={styles.mountActionText}>
+        Share this catch to ReelWall as a mounted trophy.
+      </Text>
+    </View>
+  </View>
 
-                    <TouchableOpacity
-  style={[
-    styles.mountButton,
-    isDemoUser && { backgroundColor: '#5A6B7D', opacity: 0.6 }
-  ]}
-  onPress={mountCatch}
-  disabled={isDemoUser}
->
-  <Text style={styles.mountButtonText}>
-    {isDemoUser ? 'Sign in to Mount' : 'Mount to ReelWall'}
-  </Text>
-</TouchableOpacity>
-                  </View>
+  <TouchableOpacity
+    style={[
+      styles.mountButton,
+      isDemoUser && { backgroundColor: '#5A6B7D', opacity: 0.6 }
+    ]}
+    onPress={mountCatch}
+    disabled={isDemoUser}
+  >
+    <Text style={styles.mountButtonText}>
+      {isDemoUser ? 'Sign in to Mount' : 'Mount to ReelWall'}
+    </Text>
+  </TouchableOpacity>
+</View>
 
-                  <View style={styles.dangerZone}>
+{/* VAULT INFO BLOCK */}
+<View style={styles.vaultInfoCard}>
+  <View style={styles.mountActionHeader}>
+    <View style={styles.mountIconCircle}>
+      <Text style={{ fontSize: 18 }}>🔒</Text>
+    </View>
+
+    <View style={styles.mountActionCopy}>
+      <Text style={styles.mountActionTitle}>
+        Preserve it later in Vault
+      </Text>
+      <Text style={styles.mountActionText}>
+        Once this catch is mounted to ReelWall, go to the Vault tab and choose it as one of your preserved records.
+      </Text>
+    </View>
+  </View>
+
+  <TouchableOpacity
+    style={styles.vaultInfoButton}
+    onPress={() => {
+      setSelectedCatch(null);
+      setTimeout(() => {
+        router.push('/vault' as any);
+      }, 250);
+    }}
+    activeOpacity={0.85}
+  >
+    <Text style={styles.vaultInfoButtonText}>
+      Go to Vault
+    </Text>
+  </TouchableOpacity>
+</View>
+
+<View style={styles.dangerZone}>
                     <Text style={styles.dangerZoneLabel}>CATCH & RELEASE</Text>
 
                     <TouchableOpacity style={styles.bottomDeleteButton} onPress={deleteCatch}>
@@ -978,6 +1026,58 @@ const styles = StyleSheet.create({
   detailFlex: { flex: 1 },
   scrollContent: { paddingBottom: 40 },
 
+
+featuredVaultedCard: {
+  borderWidth: 2,
+  borderColor: '#F2C94C',
+  shadowColor: '#F2C94C',
+  shadowOpacity: 0.45,
+  shadowRadius: 16,
+  shadowOffset: { width: 0, height: 0 },
+  elevation: 8,
+},
+imageMeta: {
+  position: 'absolute',
+  bottom: 16,
+  left: 16,
+  right: 16,
+},
+
+imageDate: {
+  color: '#F2C94C',
+  fontSize: 13,
+  fontWeight: '800',
+  marginBottom: 4,
+},
+
+featuredDate: {
+  color: '#F2C94C',
+  fontSize: 14,
+  fontWeight: '900',
+},
+vaultInfoCard: {
+  backgroundColor: '#102C47',
+  borderRadius: 22,
+  padding: 16,
+  marginBottom: 18,
+  borderWidth: 1,
+  borderColor: 'rgba(242,201,76,0.18)',
+},
+
+vaultInfoButton: {
+  backgroundColor: '#163554',
+  paddingVertical: 14,
+  borderRadius: 18,
+  alignItems: 'center',
+  borderWidth: 1,
+  borderColor: 'rgba(242,201,76,0.28)',
+},
+
+vaultInfoButtonText: {
+  color: '#F2C94C',
+  fontWeight: '900',
+  fontSize: 15,
+},
   wallHeader: {
     paddingHorizontal: 20,
     paddingTop: 18,
@@ -1114,26 +1214,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
   },
-  vaultBadge: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(10,37,64,0.85)',
-    borderRadius: 999,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(242,201,76,0.5)',
-  },
-  vaultIcon: { color: '#F2C94C', fontSize: 11, marginRight: 6 },
-  vaultText: { color: '#F2C94C', fontSize: 11, fontWeight: '800' },
-  featuredDate: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '800',
-    marginBottom: 4,
-  },
+
+  vaultButtonDisabled: {
+  backgroundColor: '#5A6B7D',
+  opacity: 0.65,
+},
+ 
   featuredLocation: {
     color: '#FFFFFF',
     fontSize: 14,
@@ -1202,27 +1288,24 @@ const styles = StyleSheet.create({
   cardPbIcon: { color: '#0A2540', fontSize: 9, fontWeight: '900', marginRight: 4 },
   cardPbText: { color: '#0A2540', fontSize: 10, fontWeight: '800' },
   cardVaultBadge: {
-    position: 'absolute',
-    bottom: 10,
-    right: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(10,37,64,0.85)',
-    borderRadius: 999,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(242,201,76,0.5)',
-  },
-  cardVaultIcon: { color: '#F2C94C', fontSize: 9, marginRight: 4 },
-  cardVaultText: { color: '#F2C94C', fontSize: 10, fontWeight: '800' },
-  imageMeta: { position: 'absolute', left: 12, right: 12, bottom: 12 },
-  imageDate: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
+  position: 'absolute',
+  bottom: 10,
+  right: 10,
+  flexDirection: 'row',
+  alignItems: 'center',
+  backgroundColor: 'rgba(8,30,51,0.92)',
+  borderRadius: 999,
+  paddingVertical: 5,
+  paddingHorizontal: 9,
+  borderWidth: 1,
+  borderColor: 'rgba(242,201,76,0.75)',
+  shadowColor: '#F2C94C',
+  shadowOpacity: 0.35,
+  shadowRadius: 8,
+  shadowOffset: { width: 0, height: 0 },
+  elevation: 5,
+},
+  
   imageLocation: { color: '#E3EAF0', fontSize: 12, fontWeight: '500' },
   cardBottom: { paddingTop: 8, paddingHorizontal: 4, minHeight: 24 },
   weatherText: { color: '#F2C94C', fontSize: 11, fontWeight: '700' },

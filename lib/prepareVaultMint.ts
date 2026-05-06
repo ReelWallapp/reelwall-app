@@ -39,9 +39,11 @@ export async function prepareVaultMint(record: VaultRecord) {
   const { error } = await supabase
     .from('vault_records')
     .update({
-      metadata_url: metadataUrl,
-      mint_status: 'pending',
-    })
+  metadata_url: metadataUrl,
+  vault_status: 'secured',
+  mint_status: 'minted',
+  secured_at: new Date().toISOString(),
+})
     .eq('id', record.id);
 
   if (error) {

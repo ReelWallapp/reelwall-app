@@ -128,16 +128,18 @@ if (balance.lt(price)) {
     const imageArrayBuffer = await imageRes.arrayBuffer();
 const imageBuffer = Buffer.from(imageArrayBuffer);
 
-    // 2. Upload image to Irys / Arweave
-    const imageReceipt = await irys.upload(imageBuffer, {
-      tags: [
-        { name: "Content-Type", value: "image/jpeg" },
-        { name: "App-Name", value: "LiveWell Vault" },
-        { name: "Vault-Record-Id", value: record.id },
-        { name: "Data-Type", value: "vault-image" },
-      ],
-    });
+   console.log("STARTING IRYS IMAGE UPLOAD", imageBuffer.length);
 
+const imageReceipt = await irys.upload(imageBuffer, {
+  tags: [
+    { name: "Content-Type", value: "image/jpeg" },
+    { name: "App-Name", value: "LiveWell Vault" },
+    { name: "Vault-Record-Id", value: record.id },
+    { name: "Data-Type", value: "vault-image" },
+  ],
+});
+
+console.log("IRYS IMAGE UPLOAD DONE", imageReceipt.id);
     const arweaveImageUrl = `https://gateway.irys.xyz/${imageReceipt.id}`;
 
     // 3. Create metadata with permanent image URL

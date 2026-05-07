@@ -352,15 +352,14 @@ supabase.functions
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#F2C94C" />
         }
       >
-        <View style={styles.topGlow} />
-        <View style={styles.bottomGlow} />
+       
 
         <View style={styles.content}>
           <Text style={styles.eyebrow}>LIVEWELL VAULT</Text>
 
           <View style={styles.logoWrap}>
             <Image
-              source={require('../assets/LiveWell Vault logo.png')}
+              source={require('../../../assets/reelwall-vault-hook-lock.png')}
               style={styles.logo}
               resizeMode="contain"
             />
@@ -433,7 +432,7 @@ supabase.functions
               <View style={styles.emptyCard}>
                 <View style={styles.vaultLogoWrap}>
                   <Image
-                    source={require('../assets/LiveWell Vault logo.png')}
+                    source={require('../../../assets/reelwall-vault-hook-lock.png')}
                     style={styles.vaultLogo}
                     resizeMode="contain"
                   />
@@ -541,24 +540,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 40,
   },
-  topGlow: {
-    position: 'absolute',
-    top: -20,
-    left: -40,
-    width: 180,
-    height: 180,
-    borderRadius: 999,
-    backgroundColor: 'rgba(28, 70, 108, 0.22)',
-  },
-  bottomGlow: {
-    position: 'absolute',
-    top: 220,
-    right: -40,
-    width: 170,
-    height: 170,
-    borderRadius: 999,
-    backgroundColor: 'rgba(242, 201, 76, 0.08)',
-  },
+ 
   promoText: {
     color: 'rgba(242, 201, 76, 0.7)',
     fontSize: 10,

@@ -384,34 +384,6 @@ useFocusEffect(
       return;
     }
 
-    // ✅ Blocks Supabase anonymous/demo users
-    if ((user as any).is_anonymous) {
-      Alert.alert(
-        'Sign in to Mount',
-        'You can explore ReelWall, but mounting requires an account.'
-      );
-      return;
-    }
-
-    // ✅ Also checks your profiles.is_demo flag
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('is_demo')
-      .eq('id', user.id)
-      .single();
-
-    if (profileError) {
-      console.log('Demo profile check error:', profileError);
-    }
-
-    if (profile?.is_demo) {
-      Alert.alert(
-        'Sign in to Mount',
-        'You can explore ReelWall, but mounting requires an account.'
-      );
-      return;
-    }
-
     const { error } = await supabase
       .from('catches')
       .update({
@@ -430,8 +402,7 @@ useFocusEffect(
   }
 };
 
-
-  const deleteCatch = () => {
+const deleteCatch = () => {
     if (!selectedCatch) return;
 
     Alert.alert('Delete catch?', 'This will remove this catch from your wall.', [
@@ -501,32 +472,39 @@ useFocusEffect(
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.wallHeader}>
-          <View style={styles.profileRow}>
+        <View style={styles.privateStudioHeader}>
+          <TouchableOpacity
+            style={styles.profileTopButton}
+            onPress={() => router.push('/profile')}
+            activeOpacity={0.8}
+          >
             <Ionicons
               name="person-circle-outline"
-              size={28}
+              size={30}
               color="#F2C94C"
-              onPress={() => router.push('/profile')}
             />
+            <Text style={styles.profileTopLabel}>Profile</Text>
+          </TouchableOpacity>
+
+          <View style={styles.privateStudioCopy}>
+            <View style={styles.privateStudioPill}>
+              <Text style={styles.privateStudioPillText}>MY WALL</Text>
+            </View>
+
+            <Text style={styles.privateStudioTitle}>Build Your Legacy</Text>
+
+            <Text style={styles.privateStudioSubtitle}>
+              Where your stories begin. Build collections, mount stories, and vault the moments that last.
+            </Text>
           </View>
+        </View>
 
-          <Text style={styles.wallEyebrow}>WORKING WALL</Text>
-          <Text style={styles.wallTitle}>Your Catch Wall</Text>
-          <Text style={styles.wallSubtitle}>
-            Capture, edit, add the story, organize, and choose what earns a spot on ReelWall.
-          </Text>
+        <View style={styles.privateStudioBottomRow}>
+          <Text style={styles.privateStudioBottomText}>LATEST MOMENTS</Text>
 
-          <View style={styles.wallFlowRow}>
-            <Text style={styles.wallFlowText}>Capture</Text>
-            <Text style={styles.wallFlowArrow}>→</Text>
-            <Text style={styles.wallFlowText}>Edit</Text>
-            <Text style={styles.wallFlowArrow}>→</Text>
-            <Text style={styles.wallFlowText}>Collect</Text>
-            <Text style={styles.wallFlowArrow}>→</Text>
-            <Text style={styles.wallFlowHighlight}>Mount</Text>
-            <Text style={styles.wallFlowArrow}>→</Text>
-            <Text style={styles.wallFlowText}>Vault</Text>
+          <View style={styles.privatePill}>
+            <View style={styles.privateDot} />
+            <Text style={styles.privatePillText}>Private</Text>
           </View>
         </View>
 
@@ -544,7 +522,7 @@ useFocusEffect(
             {latest && (
               <View style={styles.section}>
                 <View style={styles.headerDivider} />
-                <Text style={styles.sectionTitle}>Latest Catch</Text>
+                
 
                 <TouchableOpacity
   activeOpacity={0.9}
@@ -622,7 +600,7 @@ useFocusEffect(
 
             {rest.length > 0 && (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Catch Library</Text>
+                
 
                 <FlatList
                   data={rest}
@@ -756,7 +734,7 @@ useFocusEffect(
             <KeyboardAvoidingView
               style={styles.detailFlex}
               behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-              keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 20}
+              keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
             >
               <View style={styles.detailFlex}>
                 <View style={styles.detailHeader}>
@@ -943,17 +921,13 @@ useFocusEffect(
   </View>
 
   <TouchableOpacity
-    style={[
-      styles.mountButton,
-      isDemoUser && { backgroundColor: '#5A6B7D', opacity: 0.6 }
-    ]}
-    onPress={mountCatch}
-    disabled={isDemoUser}
-  >
-    <Text style={styles.mountButtonText}>
-      {isDemoUser ? 'Sign in to Mount' : 'Mount to ReelWall'}
-    </Text>
-  </TouchableOpacity>
+  style={styles.mountButton}
+  onPress={mountCatch}
+>
+  <Text style={styles.mountButtonText}>
+    Mount to ReelWall
+  </Text>
+</TouchableOpacity>
 </View>
 
 {/* VAULT INFO BLOCK */}
@@ -1121,6 +1095,254 @@ vaultInfoButtonText: {
   fontWeight: '900',
   fontSize: 15,
 },
+
+  topHero: {
+    backgroundColor: '#081E33',
+    paddingHorizontal: 22,
+    paddingTop: 10,
+    paddingBottom: 14,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+
+  heroGlow: {
+    position: 'absolute',
+    top: -90,
+    right: -80,
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    backgroundColor: 'rgba(242,201,76,0.03)',
+  },
+
+  heroLogoShield: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 250,
+    height: 320,
+    zIndex: 1,
+  },
+
+  heroSideImage: {
+    position: 'absolute',
+    top: -10,
+    right: 200,
+    width: 520,
+    height: 360,
+    opacity: 0.92,
+  },
+
+  heroImageTopFade: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: '100%',
+    height: 80,
+  },
+
+  heroImageFade: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: '100%',
+    height: 360,
+  },
+
+  heroImageBottomFade: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 220,
+  },
+
+  heroTopRow: {
+    zIndex: 3,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+
+  profileTopButton: {
+    position: 'absolute',
+    top: 22,
+    right: 18,
+    zIndex: 6,
+    alignItems: 'center',
+    paddingTop: 2,
+    transform: [{ scale: 0.82 }],
+  },
+
+  profileTopLabel: {
+    color: '#B8C4D1',
+    fontSize: 10,
+    fontWeight: '900',
+    marginTop: -1,
+  },
+
+  logo: {
+    width: 148,
+    height: 112,
+    marginLeft: -8,
+    marginTop: -4,
+    marginBottom: -10,
+    backgroundColor: '#081E33',
+  },
+
+  subtitle: {
+    zIndex: 3,
+    fontSize: 22,
+    color: '#F5F7FA',
+    fontWeight: '900',
+    marginTop: 2,
+    marginBottom: 12,
+    marginLeft: 6,
+    letterSpacing: -0.5,
+  },
+
+  subtitleHighlight: {
+    color: '#F2C94C',
+  },
+
+  flowPill: {
+    zIndex: 3,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'stretch',
+    backgroundColor: 'rgba(4,18,31,0.48)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 999,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+  },
+
+  flowStep: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  flowText: {
+    color: '#A5B3C2',
+    fontSize: 11,
+    fontWeight: '800',
+    marginLeft: 4,
+  },
+
+  flowTextHighlight: {
+    color: '#F2C94C',
+    fontSize: 11,
+    fontWeight: '900',
+    marginLeft: 4,
+  },
+
+  flowArrow: {
+    color: '#A5B3C2',
+    marginHorizontal: 8,
+    opacity: 0.42,
+  },
+
+  privateStudioHeader: {
+    position: 'relative',
+    overflow: 'hidden',
+    paddingHorizontal: 22,
+    paddingTop: 22,
+    paddingBottom: 18,
+    minHeight: 172,
+    backgroundColor: '#081E33',
+  },
+
+
+
+
+  privateStudioCopy: {
+    zIndex: 3,
+    paddingTop: 0,
+    maxWidth: '76%',
+  },
+
+  privateStudioPill: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(242,201,76,0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(242,201,76,0.20)',
+    borderRadius: 999,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    marginBottom: 10,
+  },
+
+  privateStudioPillText: {
+    color: '#F2C94C',
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+
+ privateStudioTitle: {
+  color: '#F5F7FA',
+  fontSize: 28,
+  fontWeight: '900',
+  lineHeight: 30,
+  marginBottom: 6,
+  letterSpacing: -1,
+  textShadowColor: 'rgba(0,0,0,0.28)',
+  textShadowOffset: { width: 0, height: 1 },
+  textShadowRadius: 3,
+},
+
+  privateStudioSubtitle: {
+    color: '#A5B3C2',
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: '700',
+    maxWidth: '92%',
+  },
+
+  privateStudioBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 22,
+    paddingTop: 10,
+    marginBottom: 8,
+  },
+
+  privateStudioBottomText: {
+    color: '#F2C94C',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.7,
+    textTransform: 'uppercase',
+  },
+
+  privatePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(242,201,76,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(242,201,76,0.20)',
+    borderRadius: 999,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+
+  privateDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#F2C94C',
+    marginRight: 6,
+  },
+
+  privatePillText: {
+    color: '#F2C94C',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+
   wallHeader: {
     paddingHorizontal: 20,
     paddingTop: 18,

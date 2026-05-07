@@ -814,10 +814,12 @@ export default function CollectionsScreen() {
         }
         ListHeaderComponent={
           <View style={styles.header}>
-            <Text style={styles.eyebrow}>CURATED WALLS</Text>
+            <Text style={styles.eyebrow}>FISH'N MEMORIES</Text>
             <Text style={styles.title}>Collections</Text>
             <Text style={styles.subtitle}>
-              Group your catches by trip, species, season, crew, or memory. Keep them private — or publish them to your web wall.
+              Build collections around your trips, species, seasons, crews, and memories.
+
+Keep them private — or share.
             </Text>
 
             <TouchableOpacity

@@ -70,7 +70,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Mounts',
+          title: 'ReelWall',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? 'trophy' : 'trophy-outline'}
@@ -85,7 +85,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="wall"
         options={{
-          title: 'Wall',
+          title: 'My Wall',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? 'apps' : 'apps-outline'}

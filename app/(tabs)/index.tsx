@@ -52,30 +52,28 @@ const CARD = '#102C47';
 const TEXT = '#F5F7FA';
 const MUTED = '#A5B3C2';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const PAGE_SIZE = 20;
-
 
 export default function MountsHomeScreen() {
   const router = useRouter();
 
   const listRef = useRef<FlatList<MountItem> | null>(null);
   const backToTopOpacity = useRef(new Animated.Value(0)).current;
+  const highFiveScale = useRef(new Animated.Value(1)).current;
+  const shareCardRef = useRef<ViewShot | null>(null);
 
   const [mounts, setMounts] = useState<MountItem[]>([]);
   const [profiles, setProfiles] = useState<ProfileMap>({});
   const [selectedMount, setSelectedMount] = useState<MountItem | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [lastMountedAt, setLastMountedAt] = useState<string | null>(null);
-const highFiveScale = useRef(new Animated.Value(1)).current;
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [reactedCatchIds, setReactedCatchIds] = useState<Record<string, boolean>>({});
   const [shareItem, setShareItem] = useState<MountItem | null>(null);
-  const shareCardRef = useRef<ViewShot | null>(null);
 
   const getPublicImageUrl = (value?: string | null) => {
     if (!value) return '';
@@ -195,7 +193,6 @@ const highFiveScale = useRef(new Animated.Value(1)).current;
       }
 
       const mountedCatches = (mountsData || []) as MountItem[];
-
       const profileMap = await fetchProfilesForMounts(mountedCatches);
 
       if (reset) {
@@ -276,91 +273,90 @@ const highFiveScale = useRef(new Animated.Value(1)).current;
   };
 
   const toggleReaction = async (catchId: string) => {
-  try {
-    const userId = await getCurrentUserId();
-    const alreadyReacted = !!reactedCatchIds[catchId];
+    try {
+      const userId = await getCurrentUserId();
+      const alreadyReacted = !!reactedCatchIds[catchId];
 
-    setReactedCatchIds((prev) => ({
-      ...prev,
-      [catchId]: !alreadyReacted,
-    }));
+      setReactedCatchIds((prev) => ({
+        ...prev,
+        [catchId]: !alreadyReacted,
+      }));
 
-    if (alreadyReacted) {
-      await supabase
-        .from('catch_reactions')
-        .delete()
-        .eq('catch_id', catchId)
-        .eq('user_id', userId);
-    } else {
-      await supabase.from('catch_reactions').upsert({
-        catch_id: catchId,
-        user_id: userId,
-        reaction_type: 'nice',
+      if (alreadyReacted) {
+        await supabase
+          .from('catch_reactions')
+          .delete()
+          .eq('catch_id', catchId)
+          .eq('user_id', userId);
+      } else {
+        await supabase.from('catch_reactions').upsert({
+          catch_id: catchId,
+          user_id: userId,
+          reaction_type: 'nice',
+        });
+      }
+
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch (error: any) {
+      console.log('Reaction error:', error);
+      Alert.alert('Could not react', error?.message || 'Please try again.');
+    }
+  };
+
+  const handleHighFive = async (catchId: string) => {
+    try {
+      Animated.sequence([
+        Animated.timing(highFiveScale, {
+          toValue: 1.15,
+          duration: 90,
+          useNativeDriver: true,
+        }),
+        Animated.spring(highFiveScale, {
+          toValue: 1,
+          friction: 4,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await toggleReaction(catchId);
+    } catch (e) {
+      console.log('High five error', e);
+    }
+  };
+
+  const shareMount = async (item: MountItem) => {
+    try {
+      setShareItem(item);
+
+      await new Promise((resolve) => setTimeout(resolve, 700));
+
+      const imageUri = await (shareCardRef.current as any)?.capture?.();
+
+      if (!imageUri) {
+        Alert.alert('Could not prepare share image');
+        return;
+      }
+
+      const canShare = await Sharing.isAvailableAsync();
+
+      if (!canShare) {
+        Alert.alert('Sharing is not available on this device');
+        return;
+      }
+
+      await Sharing.shareAsync(imageUri, {
+        mimeType: 'image/jpeg',
+        UTI: 'public.jpeg',
+        dialogTitle: 'Share this ReelWall mount',
       });
+    } catch (error: any) {
+      console.log('Share mount error:', error);
+      Alert.alert('Could not share this mount', error?.message || 'Try again');
+    } finally {
+      setShareItem(null);
     }
-
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  } catch (error: any) {
-    console.log('Reaction error:', error);
-    Alert.alert('Could not react', error?.message || 'Please try again.');
-  }
-};
-
-const handleHighFive = async (catchId: string) => {
-  try {
-    Animated.sequence([
-      Animated.timing(highFiveScale, {
-        toValue: 1.15,
-        duration: 90,
-        useNativeDriver: true,
-      }),
-      Animated.spring(highFiveScale, {
-        toValue: 1,
-        friction: 4,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-    await toggleReaction(catchId);
-  } catch (e) {
-    console.log('High five error', e);
-  }
-};
-
- const shareMount = async (item: MountItem) => {
-  try {
-    setShareItem(item);
-
-    await new Promise((resolve) => setTimeout(resolve, 700));
-
-    const imageUri = await (shareCardRef.current as any)?.capture?.();
-
-    if (!imageUri) {
-      Alert.alert('Could not prepare share image');
-      return;
-    }
-
-    const canShare = await Sharing.isAvailableAsync();
-
-    if (!canShare) {
-      Alert.alert('Sharing is not available on this device');
-      return;
-    }
-
-    await Sharing.shareAsync(imageUri, {
-      mimeType: 'image/jpeg',
-      UTI: 'public.jpeg',
-      dialogTitle: 'Share this ReelWall mount',
-    });
-  } catch (error: any) {
-    console.log('Share mount error:', error);
-    Alert.alert('Could not share this mount', error?.message || 'Try again');
-  } finally {
-    setShareItem(null);
-  }
-};
+  };
 
   const renderMount = ({ item }: { item: MountItem }) => {
     const imageUrl = getPublicImageUrl(item.image_url);
@@ -373,164 +369,154 @@ const handleHighFive = async (catchId: string) => {
     const avatarUrl = profile?.avatar_url || '';
 
     return (
-  <LinearGradient
-    colors={
-      item.is_vaulted
-        ? ['rgba(242,201,76,0.95)', 'rgba(201,164,58,0.45)', 'rgba(242,201,76,0.18)']
-        : ['transparent', 'transparent']
-    }
-    start={{ x: 0, y: 0 }}
-    end={{ x: 1, y: 1 }}
-    style={[
-      styles.cardGradientWrap,
-      item.is_vaulted && styles.vaultedCardGradientWrap,
-    ]}
-  >
-    <View style={styles.card}>
-
-      {/* HEADER */}
-      <View style={styles.cardHeader}>
-        <View style={styles.headerLeft}>
-          {item.is_vaulted && (
-            <View style={styles.headerVaultBadge}>
-              <Text style={styles.headerVaultText}>🔒 VAULTED</Text>
-            </View>
-          )}
-        </View>
-
-        <TouchableOpacity
-          onPress={() => {
-            if (item.user_id) {
-              router.push(`/profile/${item.user_id}`);
-            }
-          }}
-          activeOpacity={0.8}
-          style={styles.userBlock}
-        >
-          {avatarUrl ? (
-            <Image
-              source={{ uri: getPublicImageUrl(avatarUrl) }}
-              style={styles.avatarSmall}
-            />
-          ) : (
-            <View style={styles.avatarFallback}>
-              <Text style={styles.avatarInitial}>
-                {getInitial(profileName)}
-              </Text>
-            </View>
-          )}
-
-          <Text style={styles.username} numberOfLines={1}>
-            {profileName}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* IMAGE */}
-      {!!imageUrl && (
-        <View style={styles.imageWrap}>
-          <TouchableOpacity
-            activeOpacity={0.92}
-            onPress={() => setSelectedMount(item)}
-          >
-            <Image
-              source={{ uri: imageUrl }}
-              style={styles.image}
-              resizeMode="contain"
-            />
-          </TouchableOpacity>
-
-          {item.is_vaulted && (
-  <LinearGradient
-    colors={['transparent', 'rgba(255,255,255,0.15)', 'transparent']}
-    start={{ x: 0, y: 0 }}
-    end={{ x: 1, y: 1 }}
-    style={{
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-    }}
-  />
-)}
-
-          <TouchableOpacity
-            style={styles.shareButton}
-            onPress={() => shareMount(item)}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.shareIcon}>↗</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* BODY */}
-      <View
+      <LinearGradient
+        colors={
+          item.is_vaulted
+            ? ['rgba(242,201,76,0.95)', 'rgba(201,164,58,0.45)', 'rgba(242,201,76,0.18)']
+            : ['transparent', 'transparent']
+        }
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
         style={[
-          styles.cardBody,
-          item.is_vaulted && styles.vaultedCardBody,
+          styles.cardGradientWrap,
+          item.is_vaulted && styles.vaultedCardGradientWrap,
         ]}
       >
-        {item.is_personal_best && (
-          <View style={styles.pbBadge}>
-            <Text style={styles.pbText}>★ Personal Best</Text>
-          </View>
-        )}
-
-        {!!catchDate && <Text style={styles.catchDate}>{catchDate}</Text>}
-        {!!location && <Text style={styles.location}>{location}</Text>}
-
-        {!!item.note && (
-          <Text style={styles.note} numberOfLines={3}>
-            {item.note}
-          </Text>
-        )}
-
-        <View style={styles.cardFooterRow}>
-          <View style={styles.footerLeft}>
-            <View style={styles.mountedFooterRow}>
-              <MaterialIcons name="emoji-events" size={15} color={PRIMARY} />
-              <Text style={styles.mountedFooterText}>Mounted on ReelWall</Text>
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <View style={styles.headerLeft}>
+              {item.is_vaulted && (
+                <View style={styles.headerVaultBadge}>
+                  <Text style={styles.headerVaultText}>🔒 VAULTED</Text>
+                </View>
+              )}
             </View>
 
-            {!!mountedDate && (
-              <Text style={styles.mountedFooterDate}>
-                {` ${mountedDate}`}
+            <TouchableOpacity
+              onPress={() => {
+                if (item.user_id) {
+                  router.push(`/profile/${item.user_id}`);
+                }
+              }}
+              activeOpacity={0.8}
+              style={styles.userBlock}
+            >
+              {avatarUrl ? (
+                <Image
+                  source={{ uri: getPublicImageUrl(avatarUrl) }}
+                  style={styles.avatarSmall}
+                />
+              ) : (
+                <View style={styles.avatarFallback}>
+                  <Text style={styles.avatarInitial}>
+                    {getInitial(profileName)}
+                  </Text>
+                </View>
+              )}
+
+              <Text style={styles.username} numberOfLines={1}>
+                {profileName}
               </Text>
-            )}
+            </TouchableOpacity>
           </View>
 
-          <TouchableOpacity
-  activeOpacity={0.9}
-  onPress={() => handleHighFive(item.id)}
->
-  <Animated.View
-    style={[
-      styles.niceButton,
-      reactedCatchIds[item.id] && styles.niceButtonActive,
-      {
-        transform: [{ scale: highFiveScale }],
-      },
-    ]}
-  >
-    <Text style={styles.niceButtonEmoji}>✋</Text>
-    <Text
-      style={[
-        styles.niceButtonText,
-        reactedCatchIds[item.id] && styles.niceButtonTextActive,
-      ]}
-    >
-      {reactedCatchIds[item.id] ? 'High Five ✓' : 'High Five'}
-    </Text>
-  </Animated.View>
-</TouchableOpacity>
-        </View>
-      </View>
+          {!!imageUrl && (
+            <View style={styles.imageWrap}>
+              <TouchableOpacity
+                activeOpacity={0.92}
+                onPress={() => setSelectedMount(item)}
+              >
+                <Image
+                  source={{ uri: imageUrl }}
+                  style={styles.image}
+                  resizeMode="contain"
+                />
+              </TouchableOpacity>
 
-    </View>
-  </LinearGradient>
-);
+              {item.is_vaulted && (
+                <LinearGradient
+                  pointerEvents="none"
+                  colors={['transparent', 'rgba(255,255,255,0.15)', 'transparent']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={StyleSheet.absoluteFill}
+                />
+              )}
+
+              <TouchableOpacity
+                style={styles.shareButton}
+                onPress={() => shareMount(item)}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.shareIcon}>↗</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          <View
+            style={[
+              styles.cardBody,
+              item.is_vaulted && styles.vaultedCardBody,
+            ]}
+          >
+            {item.is_personal_best && (
+              <View style={styles.pbBadge}>
+                <Text style={styles.pbText}>★ Personal Best</Text>
+              </View>
+            )}
+
+            {!!catchDate && <Text style={styles.catchDate}>{catchDate}</Text>}
+            {!!location && <Text style={styles.location}>{location}</Text>}
+
+            {!!item.note && (
+              <Text style={styles.note} numberOfLines={3}>
+                {item.note}
+              </Text>
+            )}
+
+            <View style={styles.cardFooterRow}>
+              <View style={styles.footerLeft}>
+                <View style={styles.mountedFooterRow}>
+                  <MaterialIcons name="emoji-events" size={15} color={PRIMARY} />
+                  <Text style={styles.mountedFooterText}>Mounted on ReelWall</Text>
+                </View>
+
+                {!!mountedDate && (
+                  <Text style={styles.mountedFooterDate}>
+                    {` ${mountedDate}`}
+                  </Text>
+                )}
+              </View>
+
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => handleHighFive(item.id)}
+              >
+                <Animated.View
+                  style={[
+                    styles.niceButton,
+                    reactedCatchIds[item.id] && styles.niceButtonActive,
+                    {
+                      transform: [{ scale: highFiveScale }],
+                    },
+                  ]}
+                >
+                  <Text style={styles.niceButtonEmoji}>✋</Text>
+                  <Text
+                    style={[
+                      styles.niceButtonText,
+                      reactedCatchIds[item.id] && styles.niceButtonTextActive,
+                    ]}
+                  >
+                    {reactedCatchIds[item.id] ? 'High Five ✓' : 'High Five'}
+                  </Text>
+                </Animated.View>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </LinearGradient>
+    );
   };
 
   const shareLocation = shareItem?.place_name || shareItem?.region_name || '';
@@ -563,70 +549,98 @@ const handleHighFive = async (catchId: string) => {
         }
         ListHeaderComponent={
           <>
-            <View style={styles.topHeader}>
-              <View style={styles.profileRow}>
-                <TouchableOpacity
-                  style={styles.profileTopButton}
-                  onPress={() => router.push('/profile')}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons
-                    name="person-circle-outline"
-                    size={26}
-                    color={PRIMARY}
-                  />
-                  <Text style={styles.profileTopLabel}>Profile</Text>
-                </TouchableOpacity>
-              </View>
+            <LinearGradient
+              colors={[BG, BG, BG]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.topHero}
+            >
+              
 
-              <Image
-                source={require('../../assets/logo.png')}
-                style={styles.logo}
-                resizeMode="contain"
+              <LinearGradient
+                pointerEvents="none"
+                colors={[
+                  'rgba(8,30,51,0.96)',
+                  'rgba(8,30,51,0.82)',
+                  'rgba(8,30,51,0.00)',
+                ]}
+                locations={[0, 0.58, 1]}
+                start={{ x: 0.5, y: 0 }}
+                end={{ x: 0.5, y: 1 }}
+                style={styles.heroLogoShield}
               />
 
-              <Text style={styles.subtitle}>Every Fish Has a Story</Text>
-            </View>
+              <TouchableOpacity
+                style={styles.profileTopButton}
+                onPress={() => router.push('/profile')}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name="person-circle-outline"
+                  size={25}
+                  color={PRIMARY}
+                />
+                <Text style={styles.profileTopLabel}>Profile</Text>
+              </TouchableOpacity>
 
-            <View style={styles.flowRow}>
-              <Text style={styles.flowText}>Capture</Text>
-              <Text style={styles.flowArrow}>→</Text>
-
-              <Text style={styles.flowText}>Choose</Text>
-              <Text style={styles.flowArrow}>→</Text>
-
-              <Text style={styles.flowTextHighlight}>Mount</Text>
-              <Text style={styles.flowArrow}>→</Text>
-
-              <Text style={styles.flowText}>Share</Text>
-              <Text style={styles.flowArrow}>→</Text>
-
-              <Text style={styles.flowText}>Vault</Text>
-            </View>
-
-            <View style={styles.mountsHeader}>
-              <View style={styles.mountsIntroPill}>
-                <MaterialIcons name="emoji-events" size={15} color={PRIMARY} />
-                <Text style={styles.mountsIntroPillText}>
-                  Community Trophy Wall
-                </Text>
+              <View style={styles.heroLogoWrap}>
+                <Image
+                  source={require('../../assets/logo.png')}
+                  style={styles.logo}
+                  resizeMode="contain"
+                />
               </View>
 
-              <Text style={styles.mountsTitle}>ReelWall Mounts</Text>
-
-              <Text style={styles.mountsSubtitle}>
-                The moments anglers chose to mount.
+              <Text style={styles.subtitle}>
+                Every Fish Has a <Text style={styles.subtitleHighlight}>Story</Text>
               </Text>
 
-              <View style={styles.mountsBottomRow}>
-                <Text style={styles.mountsBottomText}>
-                  Latest community mounts
-                </Text>
-
-                <View style={styles.livePill}>
-                  <View style={styles.liveDot} />
-                  <Text style={styles.livePillText}>Live</Text>
+              <View style={styles.flowPill}>
+                <View style={styles.flowStep}>
+                  <Ionicons name="camera" size={13} color={MUTED} />
+                  <Text style={styles.flowText}>Capture</Text>
                 </View>
+
+                <Text style={styles.flowArrow}>→</Text>
+
+                <View style={styles.flowStep}>
+                  <MaterialIcons name="emoji-events" size={14} color={PRIMARY} />
+                  <Text style={styles.flowTextHighlight}>Mount</Text>
+                </View>
+
+                <Text style={styles.flowArrow}>→</Text>
+
+                <View style={styles.flowStep}>
+                  <Ionicons name="lock-closed" size={13} color={MUTED} />
+                  <Text style={styles.flowText}>Vault</Text>
+                </View>
+              </View>
+            </LinearGradient>
+
+            <LinearGradient
+              colors={[
+                'rgba(8,30,51,0.00)',
+                'rgba(8,30,51,0.62)',
+                'rgba(16,44,71,0.14)',
+              ]}
+              locations={[0, 0.42, 1]}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+              style={styles.mountsHeader}
+            >
+              <Text style={styles.mountsTitle}>REELWALL</Text>
+
+              <Text style={styles.mountsSubtitle}>
+                Mounted by the fishing community.
+              </Text>
+            </LinearGradient>
+
+            <View style={styles.mountsBottomRow}>
+              <Text style={styles.mountsBottomText}>Latest Mounts</Text>
+
+              <View style={styles.livePill}>
+                <View style={styles.liveDot} />
+                <Text style={styles.livePillText}>Live</Text>
               </View>
             </View>
           </>
@@ -671,125 +685,132 @@ const handleHighFive = async (catchId: string) => {
       )}
 
       <Modal visible={!!selectedMount} animationType="fade" transparent={false}>
-  <SafeAreaView style={styles.fullscreenWrap}>
-    <View style={styles.fullscreenTopBar}>
-      <TouchableOpacity
-        style={styles.fullscreenClose}
-        onPress={() => setSelectedMount(null)}
-      >
-        <Text style={styles.fullscreenCloseText}>Close</Text>
-      </TouchableOpacity>
-    </View>
+        <SafeAreaView style={styles.fullscreenWrap}>
+          <TouchableOpacity
+            style={styles.fullscreenClose}
+            onPress={() => setSelectedMount(null)}
+          >
+            <Text style={styles.fullscreenCloseText}>Close</Text>
+          </TouchableOpacity>
 
-    {selectedMount && (
-      <>
-        <ScrollView
-          style={styles.fullscreenImageScroll}
-          contentContainerStyle={styles.fullscreenImageContent}
-          maximumZoomScale={4}
-          minimumZoomScale={1}
-          bouncesZoom
-          pinchGestureEnabled
-          showsHorizontalScrollIndicator={false}
-          showsVerticalScrollIndicator={false}
-          centerContent
-        >
-          <Image
-            source={{ uri: getPublicImageUrl(selectedMount.image_url) }}
-            style={styles.fullscreenImage}
-            resizeMode="contain"
-          />
-        </ScrollView>
+          {selectedMount && (
+            <>
+              <ScrollView
+                style={styles.fullscreenZoomScroll}
+                contentContainerStyle={styles.fullscreenZoomContent}
+                maximumZoomScale={4}
+                minimumZoomScale={1}
+                bouncesZoom
+                pinchGestureEnabled
+                showsHorizontalScrollIndicator={false}
+                showsVerticalScrollIndicator={false}
+                centerContent
+              >
+                <Image
+                  source={{ uri: getPublicImageUrl(selectedMount.image_url) }}
+                  style={styles.fullscreenImage}
+                  resizeMode="contain"
+                />
+              </ScrollView>
 
-        <View style={styles.fullscreenStoryPanel}>
-          {!!selectedMount.catch_date && (
-            <Text style={styles.fullscreenDate}>
-              {selectedMount.catch_date}
-            </Text>
+              {(selectedMount.note ||
+                selectedMount.catch_date ||
+                selectedMount.place_name ||
+                selectedMount.region_name) && (
+                <View style={styles.fullscreenStoryPanel}>
+                  {!!selectedMount.catch_date && (
+                    <Text style={styles.fullscreenDate}>
+                      {selectedMount.catch_date}
+                    </Text>
+                  )}
+
+                  {!!(selectedMount.place_name || selectedMount.region_name) && (
+                    <Text style={styles.fullscreenLocation}>
+                      {selectedMount.place_name || selectedMount.region_name}
+                    </Text>
+                  )}
+
+                  {!!selectedMount.note && (
+                    <>
+                      <Text style={styles.fullscreenStoryTitle}>Story</Text>
+
+                      <ScrollView
+                        style={styles.fullscreenStoryScroll}
+                        showsVerticalScrollIndicator
+                      >
+                        <Text style={styles.fullscreenStory}>
+                          {selectedMount.note}
+                        </Text>
+                      </ScrollView>
+                    </>
+                  )}
+                </View>
+              )}
+            </>
           )}
-
-          {!!(selectedMount.place_name || selectedMount.region_name) && (
-            <Text style={styles.fullscreenLocation}>
-              {selectedMount.place_name || selectedMount.region_name}
-            </Text>
-          )}
-
-          {!!selectedMount.note && (
-            <ScrollView
-              style={styles.fullscreenStoryScroll}
-              showsVerticalScrollIndicator
-            >
-              <Text style={styles.fullscreenStory}>
-                {selectedMount.note}
-              </Text>
-            </ScrollView>
-          )}
-        </View>
-      </>
-    )}
-  </SafeAreaView>
-</Modal>
+        </SafeAreaView>
+      </Modal>
 
       <View style={styles.hiddenShareWrap} pointerEvents="none">
         {shareItem && (
-         <ViewShot
-  ref={shareCardRef}
-  options={{
-    format: 'jpg',
-    quality: 0.95,
-    fileName: `reelwall-share-${shareItem.id}`,
-  }}
->
-  <View style={styles.shareCardPremium}>
-    <View style={styles.shareImageWrap}>
-      <Image
-        source={{ uri: getPublicImageUrl(shareItem.image_url) }}
-        style={styles.shareCardPremiumImage}
-        resizeMode="contain"
-      />
-    </View>
+          <ViewShot
+            ref={shareCardRef}
+            options={{
+              format: 'jpg',
+              quality: 0.95,
+              fileName: `reelwall-share-${shareItem.id}`,
+            }}
+          >
+            <View style={styles.shareCardPremium}>
+              <View style={styles.shareImageWrap}>
+                <Image
+                  source={{ uri: getPublicImageUrl(shareItem.image_url) }}
+                  style={styles.shareCardPremiumImage}
+                  resizeMode="contain"
+                />
+              </View>
 
-    <View style={styles.shareCardGradient} />
+              <View style={styles.shareCardGradient} />
 
-    {shareItem.is_personal_best && (
-      <View style={styles.shareCardPbBadge}>
-        <Text style={styles.shareCardPbText}>★ PERSONAL BEST</Text>
-      </View>
-    )}
+              {shareItem.is_personal_best && (
+                <View style={styles.shareCardPbBadge}>
+                  <Text style={styles.shareCardPbText}>★ PERSONAL BEST</Text>
+                </View>
+              )}
 
-    <View style={styles.shareCardPremiumMeta}>
-      {shareItem.catch_date ? (
-        <Text style={styles.shareCardPremiumDate}>
-          {shareItem.catch_date}
-        </Text>
-      ) : null}
+              <View style={styles.shareCardPremiumMeta}>
+                {shareItem.catch_date ? (
+                  <Text style={styles.shareCardPremiumDate}>
+                    {shareItem.catch_date}
+                  </Text>
+                ) : null}
 
-      {shareLocation ? (
-        <Text style={styles.shareCardPremiumLocation}>
-          {shareLocation}
-        </Text>
-      ) : null}
+                {shareLocation ? (
+                  <Text style={styles.shareCardPremiumLocation}>
+                    {shareLocation}
+                  </Text>
+                ) : null}
 
-      <View style={styles.shareCardDivider} />
+                <View style={styles.shareCardDivider} />
 
-      <Text
-        numberOfLines={5}
-        style={[
-          styles.shareCardPremiumNote,
-          { fontSize: getNoteFontSize(shareItem?.note) },
-        ]}
-      >
-        {shareItem.note?.trim() || 'A catch worth sharing.'}
-      </Text>
-    </View>
+                <Text
+                  numberOfLines={5}
+                  style={[
+                    styles.shareCardPremiumNote,
+                    { fontSize: getNoteFontSize(shareItem?.note) },
+                  ]}
+                >
+                  {shareItem.note?.trim() || 'A catch worth sharing.'}
+                </Text>
+              </View>
 
-    <View style={styles.shareCardBottomBrand}>
-      <Text style={styles.shareCardBottomBrandText}>
-        Mounted on ReelWall
-      </Text>
-    </View>
-  </View>
-</ViewShot>
+              <View style={styles.shareCardBottomBrand}>
+                <Text style={styles.shareCardBottomBrandText}>
+                  Mounted on ReelWall
+                </Text>
+              </View>
+            </View>
+          </ViewShot>
         )}
       </View>
     </SafeAreaView>
@@ -805,194 +826,168 @@ const styles = StyleSheet.create({
   content: {
     paddingBottom: 120,
   },
-headerLeft: {
-  flex: 1,
-  justifyContent: 'center',
-},
 
-shareImageWrap: {
-  width: '100%',
-  height: '100%',
-  backgroundColor: '#081E33', // 🔥 forces blue behind image
-  justifyContent: 'center',
-  alignItems: 'center',
-},
-
-cardGradientWrap: {
-  marginHorizontal: 18,
-  marginTop: 18,
-  marginBottom: 18,
-  borderRadius: 26,
-  padding: 0,
-},
-
-vaultedCardGradientWrap: {
-  padding: 2,
-  shadowColor: '#000',
-  shadowOpacity: 0.28,
-  shadowRadius: 12,
-  shadowOffset: { width: 0, height: 6 },
-  elevation: 7,
-},
-
-headerVaultBadge: {
-  alignSelf: 'flex-start',
-  backgroundColor: '#081E33', // dark navy
-  borderRadius: 999,
-  paddingVertical: 6,
-  paddingHorizontal: 12,
-  borderWidth: 1,
-  borderColor: '#F2C94C',
-  shadowColor: '#F2C94C',
-  shadowOpacity: 0.25,
-  shadowRadius: 6,
-  shadowOffset: { width: 0, height: 0 },
-  elevation: 3,
-},
-
-headerVaultText: {
-  color: '#F2C94C', // gold text
-  fontSize: 10,
-  fontWeight: '900',
-  letterSpacing: 1.2,
-},
-
-vaultedMountCard: {
-  // kept for compatibility, no longer used for the main gold effect
-},
-vaultedCardBody: {
-  backgroundColor: 'rgba(242,201,76,0.08)',
-  borderTopWidth: 1,
-  borderTopColor: 'rgba(242,201,76,0.18)',
-},
-vaultedRecordBadge: {
-  position: 'absolute',
-  top: 12,
-  left: 12,
-  backgroundColor: 'rgba(8,30,51,0.92)',
-  borderRadius: 999,
-  paddingVertical: 6,
-  paddingHorizontal: 10,
-  borderWidth: 1,
-  borderColor: 'rgba(242,201,76,0.85)',
-  zIndex: 6,
-},
-
-vaultedRecordBadgeText: {
-  color: '#F2C94C',
-  fontSize: 10,
-  fontWeight: '900',
-  letterSpacing: 1.2,
-},
-
-  topHeader: {
-    alignItems: 'center',
-    marginTop: 4,
-    marginBottom: 0,
-    paddingHorizontal: 22,
-    position: 'relative',
+  headerLeft: {
+    flex: 1,
+    justifyContent: 'center',
   },
 
-  profileRow: {
-    position: 'absolute',
-    top: 10,
-    right: 18,
-    zIndex: 20,
+  shareImageWrap: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: BG,
+    justifyContent: 'center',
     alignItems: 'center',
   },
 
-  profileTopButton: {
-    alignItems: 'center',
+  cardGradientWrap: {
+    marginHorizontal: 18,
+    marginTop: 18,
+    marginBottom: 18,
+    borderRadius: 26,
+    padding: 0,
   },
 
-  profileTopLabel: {
-    color: '#8FA3B8',
-    fontSize: 10,
-    fontWeight: '700',
-    marginTop: 1,
+  vaultedCardGradientWrap: {
+    padding: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.28,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 7,
   },
 
-  logo: {
-    width: 150,
-    height: 150,
-    alignSelf: 'center',
-    marginTop: -8,
-    marginBottom: -10,
-  },
-
-  subtitle: {
-    fontSize: 13,
-    color: MUTED,
-    textAlign: 'center',
-    fontWeight: '700',
-    marginTop: 0,
-    marginBottom: 8,
-  },
-
-  introText: {
-    color: TEXT,
-    fontSize: 15,
-    lineHeight: 21,
-    fontWeight: '800',
-    textAlign: 'center',
-    maxWidth: 330,
-    marginBottom: 14,
-  },
-
-  mountsHeader: {
-    backgroundColor: 'rgba(16,44,71,0.45)',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 18,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.05)',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
-  },
-
-  mountsIntroPill: {
+  headerVaultBadge: {
     alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(242,201,76,0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(242,201,76,0.22)',
+    backgroundColor: BG,
     borderRadius: 999,
     paddingVertical: 6,
-    paddingHorizontal: 10,
-    marginBottom: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: PRIMARY,
+    shadowColor: PRIMARY,
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 3,
   },
 
-  mountsIntroPillText: {
+  headerVaultText: {
     color: PRIMARY,
     fontSize: 10,
     fontWeight: '900',
-    letterSpacing: 1,
-    marginLeft: 6,
-    textTransform: 'uppercase',
+    letterSpacing: 1.2,
+  },
+
+  vaultedCardBody: {
+    backgroundColor: 'rgba(242,201,76,0.08)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(242,201,76,0.18)',
+  },
+
+  topHero: {
+    backgroundColor: BG,
+    paddingHorizontal: 22,
+    paddingTop: 14,
+    paddingBottom: 14,
+    overflow: 'hidden',
+    position: 'relative',
+    alignItems: 'center',
+  },
+
+  
+
+  heroLogoShield: {
+    position: 'absolute',
+    top: 0,
+    left: 40,
+    right: 40,
+    height: 130,
+    zIndex: 1,
+  },
+
+  profileTopButton: {
+    position: 'absolute',
+    top: 14,
+    right: 18,
+    zIndex: 6,
+    alignItems: 'center',
+    transform: [{ scale: 0.72 }],
+  },
+
+  profileTopLabel: {
+    color: '#B8C4D1',
+    fontSize: 13,
+    fontWeight: '900',
+    marginTop: -1,
+  },
+
+  heroLogoWrap: {
+    zIndex: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+    marginBottom: -8,
+    paddingHorizontal: 18,
+    paddingVertical: 2,
+    backgroundColor: 'rgba(8,30,51,0.92)',
+    borderRadius: 26,
+  },
+
+  logo: {
+    width: 142,
+    height: 104,
+  },
+
+  subtitle: {
+    zIndex: 4,
+    fontSize: 19,
+    color: TEXT,
+    fontWeight: '900',
+    marginTop: 2,
+    marginBottom: 12,
+    textAlign: 'center',
+    letterSpacing: -0.2,
+  },
+
+  subtitleHighlight: {
+    color: PRIMARY,
+  },
+
+  mountsHeader: {
+    paddingHorizontal: 22,
+    paddingTop: 16,
+    paddingBottom: 12,
+    alignItems: 'center',
   },
 
   mountsTitle: {
     color: TEXT,
-    fontSize: 30,
+    fontSize: 25,
     fontWeight: '900',
-    letterSpacing: 0.2,
-    marginBottom: 8,
+    letterSpacing: 1.6,
+    marginBottom: 5,
+    textAlign: 'center',
   },
 
   mountsSubtitle: {
     color: MUTED,
-    fontSize: 15,
-    fontWeight: '700',
-    lineHeight: 21,
+    fontSize: 14,
+    fontWeight: '800',
+    lineHeight: 20,
     maxWidth: 350,
+    textAlign: 'center',
   },
 
   mountsBottomRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 14,
+    marginTop: 0,
+    marginBottom: 6,
+    paddingTop: 12,
+    paddingBottom: 0,
+    paddingHorizontal: 22,
   },
 
   mountsBottomText: {
@@ -1002,15 +997,6 @@ vaultedRecordBadgeText: {
     letterSpacing: 0.6,
     textTransform: 'uppercase',
   },
-
-niceButtonActive: {
-  backgroundColor: PRIMARY,
-  borderColor: PRIMARY,
-},
-
-niceButtonTextActive: {
-  color: '#0A2540',
-},
 
   livePill: {
     flexDirection: 'row',
@@ -1038,40 +1024,65 @@ niceButtonTextActive: {
     letterSpacing: 0.5,
   },
 
-  flowRow: {
+  flowPill: {
+    zIndex: 4,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    flexWrap: 'wrap',
-    marginTop: 6,
-    marginBottom: 14,
-    opacity: 0.75,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(4,18,31,0.58)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.10)',
+    borderRadius: 999,
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+    shadowColor: '#000',
+    shadowOpacity: 0.22,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 7 },
+    elevation: 7,
+  },
+
+  flowStep: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    flexShrink: 1,
   },
 
   flowText: {
-    color: '#A5B3C2',
-    fontSize: 12,
-    fontWeight: '700',
+    color: MUTED,
+    fontSize: 11,
+    fontWeight: '900',
   },
 
   flowTextHighlight: {
-    color: '#F2C94C',
-    fontSize: 12,
+    color: PRIMARY,
+    fontSize: 11,
     fontWeight: '900',
   },
 
   flowArrow: {
-    color: '#A5B3C2',
-    fontSize: 12,
-    marginHorizontal: 6,
-    opacity: 0.6,
+    color: MUTED,
+    fontSize: 11,
+    marginHorizontal: 8,
+    opacity: 0.58,
   },
 
-card: {
-  backgroundColor: CARD,
-  borderRadius: 24,
-  overflow: 'hidden',
-},
+  niceButtonActive: {
+    backgroundColor: PRIMARY,
+    borderColor: PRIMARY,
+  },
+
+  niceButtonTextActive: {
+    color: '#0A2540',
+  },
+
+  card: {
+    backgroundColor: CARD,
+    borderRadius: 24,
+    overflow: 'hidden',
+  },
 
   cardHeader: {
     paddingHorizontal: 14,
@@ -1128,34 +1139,19 @@ card: {
   },
 
   imageWrap: {
-  marginHorizontal: 12,
-  marginBottom: 12,
-  borderRadius: 18,
-  overflow: 'hidden',
-  backgroundColor: '#081E33',
-  padding: 10,
-},
+    marginHorizontal: 12,
+    marginBottom: 12,
+    borderRadius: 18,
+    overflow: 'hidden',
+    backgroundColor: BG,
+    padding: 10,
+  },
 
-image: {
-  width: '100%',
-  height: 320,
-  backgroundColor: '#081E33',
-  borderRadius: 14,
-},
-
-  imageTrophyBadge: {
-    position: 'absolute',
-    top: 12,
-    left: 12,
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: 'rgba(0,0,0,0.62)',
-    borderWidth: 1,
-    borderColor: 'rgba(242,201,76,0.45)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 5,
+  image: {
+    width: '100%',
+    height: 320,
+    backgroundColor: BG,
+    borderRadius: 14,
   },
 
   shareButton: {
@@ -1197,11 +1193,6 @@ image: {
     color: TEXT,
     fontSize: 14,
     lineHeight: 20,
-  },
-
-  cardFooter: {
-    alignItems: 'flex-start',
-    marginTop: 14,
   },
 
   cardFooterRow: {
@@ -1328,102 +1319,97 @@ image: {
   },
 
   fullscreenWrap: {
-  flex: 1,
-  backgroundColor: BG,
-},
+    flex: 1,
+    backgroundColor: BG,
+  },
 
+  fullscreenZoomScroll: {
+    flex: 1,
+    backgroundColor: BG,
+  },
 
+  fullscreenImage: {
+    width: '100%',
+    height: '100%',
+  },
 
+  fullscreenClose: {
+    position: 'absolute',
+    top: 54,
+    right: 20,
+    zIndex: 20,
+    backgroundColor: 'rgba(8,30,51,0.85)',
+    borderRadius: 999,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(242,201,76,0.45)',
+  },
 
-fullscreenImage: {
-  width: SCREEN_WIDTH,
-  height: SCREEN_HEIGHT * 0.62,
-  backgroundColor: '#000',
-},
+  fullscreenCloseText: {
+    color: TEXT,
+    fontWeight: '800',
+  },
 
-fullscreenClose: {
-  backgroundColor: 'rgba(8,30,51,0.95)',
-  borderRadius: 999,
-  paddingVertical: 10,
-  paddingHorizontal: 14,
-  borderWidth: 1,
-  borderColor: 'rgba(242,201,76,0.45)',
-},
+  fullscreenZoomContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: BG,
+    paddingBottom: 190,
+  },
 
+  fullscreenDate: {
+    color: TEXT,
+    fontSize: 13,
+    fontWeight: '900',
+    marginBottom: 4,
+  },
 
-fullscreenCloseText: {
-  color: TEXT,
-  fontWeight: '900',
-},
+  fullscreenLocation: {
+    color: PRIMARY,
+    fontSize: 14,
+    fontWeight: '900',
+    marginBottom: 10,
+  },
 
+  fullscreenStory: {
+    color: TEXT,
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: '600',
+  },
 
+  fullscreenStoryPanel: {
+    position: 'absolute',
+    left: 14,
+    right: 14,
+    bottom: 28,
+    maxHeight: '30%',
+    backgroundColor: 'rgba(16,44,71,0.96)',
+    borderRadius: 22,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
 
-fullscreenDate: {
-  color: TEXT,
-  fontSize: 13,
-  fontWeight: '900',
-  marginBottom: 4,
-},
+  fullscreenStoryTitle: {
+    color: PRIMARY,
+    fontSize: 13,
+    fontWeight: '900',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+  },
 
-fullscreenLocation: {
-  color: PRIMARY,
-  fontSize: 14,
-  fontWeight: '900',
-  marginBottom: 10,
-},
+  fullscreenStoryScroll: {
+    marginTop: 2,
+  },
 
-
-
-fullscreenStory: {
-  color: TEXT,
-  fontSize: 15,
-  lineHeight: 23,
-  fontWeight: '700',
-},
-
-
-
-fullscreenTopBar: {
-  height: 56,
-  justifyContent: 'center',
-  alignItems: 'flex-end',
-  paddingHorizontal: 16,
-  backgroundColor: BG,
-  zIndex: 20,
-},
-
-
-
-
-fullscreenImageScroll: {
-  flex: 1,
-  backgroundColor: '#000',
-},
-
-fullscreenImageContent: {
-  minHeight: SCREEN_HEIGHT * 0.62,
-  justifyContent: 'center',
-  alignItems: 'center',
-},
-
-
-fullscreenStoryPanel: {
-  maxHeight: SCREEN_HEIGHT * 0.32,
-  backgroundColor: CARD,
-  borderTopLeftRadius: 22,
-  borderTopRightRadius: 22,
-  paddingHorizontal: 18,
-  paddingTop: 16,
-  paddingBottom: 22,
-  borderTopWidth: 1,
-  borderTopColor: 'rgba(255,255,255,0.1)',
-},
-
-fullscreenStoryScroll: {
-  marginTop: 4,
-},
-
-
+  fullscreenImageContent: {
+    minHeight: SCREEN_HEIGHT * 0.62,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 
   hiddenShareWrap: {
     position: 'absolute',
@@ -1433,16 +1419,16 @@ fullscreenStoryScroll: {
   },
 
   shareCardPremium: {
-  width: '100%',
-  aspectRatio: 4 / 5,
-  overflow: 'hidden',
-  backgroundColor: BG,
-  position: 'relative',
-},
+    width: '100%',
+    aspectRatio: 4 / 5,
+    overflow: 'hidden',
+    backgroundColor: BG,
+    position: 'relative',
+  },
+
   shareCardPremiumImage: {
     width: '100%',
     height: '100%',
-    
   },
 
   shareCardGradient: {

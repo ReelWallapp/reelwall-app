@@ -81,17 +81,6 @@ export default function VaultDetailScreen() {
     return () => clearTimeout(timer);
   }, [record]);
 
-  const shareRecord = async () => {
-    try {
-      await Share.share({
-        message: `View this verified LiveWell Vault record:\n${verificationUrl}`,
-      });
-    } catch (error) {
-      console.log('Share record error:', error);
-      Alert.alert('Could not share record');
-    }
-  };
-
   const shareCertificateImage = async () => {
     if (!record) return;
 
@@ -281,10 +270,6 @@ export default function VaultDetailScreen() {
           </Text>
         </View>
 
-        <TouchableOpacity activeOpacity={0.86} style={styles.primaryButton} onPress={shareRecord}>
-          <Text style={styles.primaryButtonText}>Share Record Link</Text>
-        </TouchableOpacity>
-
         <TouchableOpacity
           activeOpacity={0.86}
           style={styles.primaryButton}
@@ -296,14 +281,6 @@ export default function VaultDetailScreen() {
           ) : (
             <Text style={styles.primaryButtonText}>Share Certificate Image</Text>
           )}
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          activeOpacity={0.86}
-          style={styles.secondaryButton}
-          onPress={() => router.push(`/vault/${recordId}/qr` as any)}
-        >
-          <Text style={styles.secondaryButtonText}>View QR Code</Text>
         </TouchableOpacity>
 
         <Text style={styles.footerNote}>Verified by LiveWell Vault</Text>

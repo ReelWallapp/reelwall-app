@@ -2,16 +2,17 @@
   "expo": {
     "name": "reelwall-app",
     "slug": "reelwall-app",
-    "version": "1.0.0",
+    "version": "1.1",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
     "scheme": "reelwallapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.reelwall.app",
-      "infoPlist": {
+   "ios": {
+  "supportsTablet": true,
+  "bundleIdentifier": "com.reelwall.app",
+  "buildNumber": "2",
+  "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "ReelWall uses your camera so you can take fishing photos, save them to your wall, and choose which moments to mount on ReelWall.",
         "NSPhotoLibraryUsageDescription": "ReelWall uses your photo library so you can upload existing fishing photos, organize them into collections, and choose which moments to mount on ReelWall.",

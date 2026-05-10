@@ -59,6 +59,7 @@ const PAGE_SIZE = 20;
 export default function MountsHomeScreen() {
   const router = useRouter();
 
+  const [feedMode, setFeedMode] = useState<'public' | 'following'>('public');
   const listRef = useRef<FlatList<MountItem> | null>(null);
   const backToTopOpacity = useRef(new Animated.Value(0)).current;
   const highFiveScale = useRef(new Animated.Value(1)).current;
@@ -157,79 +158,113 @@ export default function MountsHomeScreen() {
   };
 
   const loadMounts = async (reset = true) => {
-    if (loadingMore && !reset) return;
-    if (!hasMore && !reset) return;
+  if (loadingMore && !reset) return;
+  if (!hasMore && !reset) return;
 
-    try {
-      if (reset) {
-        setHasMore(true);
-        setLastMountedAt(null);
-      } else {
-        setLoadingMore(true);
-      }
+  try {
+    if (reset) {
+      setHasMore(true);
+      setLastMountedAt(null);
+    } else {
+      setLoadingMore(true);
+    }
 
-      let query = supabase
-        .from('catches')
-        .select('*')
-        .eq('is_public', true)
-        .order('mounted_at', { ascending: false, nullsFirst: false })
-        .limit(PAGE_SIZE);
+    let followingIds: string[] = [];
 
-      if (!reset && lastMountedAt) {
-        query = query.lt('mounted_at', lastMountedAt);
-      }
+    if (feedMode === 'following') {
+      const userId = await getCurrentUserId();
 
-      const { data: mountsData, error: mountsError } = await query;
+      const { data: followsData, error: followsError } = await supabase
+        .from('user_follows')
+        .select('following_id')
+        .eq('follower_id', userId);
 
-      if (mountsError) {
-        console.log('Mounts load error:', mountsError);
-
-        if (reset) {
-          setMounts([]);
-          setProfiles({});
-        }
-
+      if (followsError) {
+        console.log('Following load error:', followsError);
+        setMounts([]);
+        setProfiles({});
+        setHasMore(false);
         return;
       }
 
-      const mountedCatches = (mountsData || []) as MountItem[];
-      const profileMap = await fetchProfilesForMounts(mountedCatches);
+      followingIds = (followsData || [])
+        .map((row: any) => row.following_id)
+        .filter(Boolean);
 
-      if (reset) {
-        setMounts(mountedCatches);
-        setProfiles(profileMap);
-      } else {
-        setMounts((prev) => [...prev, ...mountedCatches]);
-        setProfiles((prev) => ({
-          ...prev,
-          ...profileMap,
-        }));
+      if (followingIds.length === 0) {
+        setMounts([]);
+        setProfiles({});
+        setHasMore(false);
+        return;
       }
+    }
 
-      if (mountedCatches.length > 0) {
-        setLastMountedAt(
-          mountedCatches[mountedCatches.length - 1].mounted_at || null
-        );
-      }
+    let query = supabase
+      .from('catches')
+      .select('*')
+      .eq('is_public', true)
+      .order('mounted_at', { ascending: false, nullsFirst: false })
+      .limit(PAGE_SIZE);
 
-      setHasMore(mountedCatches.length === PAGE_SIZE);
-    } catch (error) {
-      console.log('Load mounts error:', error);
+    if (feedMode === 'following') {
+      query = query.in('user_id', followingIds);
+    }
+
+    if (!reset && lastMountedAt) {
+      query = query.lt('mounted_at', lastMountedAt);
+    }
+
+    const { data: mountsData, error: mountsError } = await query;
+
+    if (mountsError) {
+      console.log('Mounts load error:', mountsError);
 
       if (reset) {
         setMounts([]);
         setProfiles({});
       }
-    } finally {
-      setLoadingMore(false);
+
+      return;
     }
-  };
+
+    const mountedCatches = (mountsData || []) as MountItem[];
+    const profileMap = await fetchProfilesForMounts(mountedCatches);
+
+    if (reset) {
+      setMounts(mountedCatches);
+      setProfiles(profileMap);
+    } else {
+      setMounts((prev) => [...prev, ...mountedCatches]);
+      setProfiles((prev) => ({
+        ...prev,
+        ...profileMap,
+      }));
+    }
+
+    if (mountedCatches.length > 0) {
+      setLastMountedAt(
+        mountedCatches[mountedCatches.length - 1].mounted_at || null
+      );
+    }
+
+    setHasMore(mountedCatches.length === PAGE_SIZE);
+  } catch (error) {
+    console.log('Load mounts error:', error);
+
+    if (reset) {
+      setMounts([]);
+      setProfiles({});
+    }
+  } finally {
+    setLoadingMore(false);
+  }
+};
 
   useFocusEffect(
-    useCallback(() => {
-      loadMounts(true);
-    }, [])
-  );
+  useCallback(() => {
+    loadMounts(true);
+  }, [feedMode])
+);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -382,7 +417,11 @@ export default function MountsHomeScreen() {
           item.is_vaulted && styles.vaultedCardGradientWrap,
         ]}
       >
-        <View style={styles.card}>
+        <TouchableOpacity
+  style={styles.card}
+  activeOpacity={0.96}
+  onPress={() => setSelectedMount(item)}
+>
           <View style={styles.cardHeader}>
             <View style={styles.headerLeft}>
               {item.is_vaulted && (
@@ -422,16 +461,11 @@ export default function MountsHomeScreen() {
 
           {!!imageUrl && (
             <View style={styles.imageWrap}>
-              <TouchableOpacity
-                activeOpacity={0.92}
-                onPress={() => setSelectedMount(item)}
-              >
-                <Image
-                  source={{ uri: imageUrl }}
-                  style={styles.image}
-                  resizeMode="contain"
-                />
-              </TouchableOpacity>
+              <Image
+  source={{ uri: imageUrl }}
+  style={styles.image}
+  resizeMode="contain"
+/>
 
               {item.is_vaulted && (
                 <LinearGradient
@@ -514,7 +548,7 @@ export default function MountsHomeScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </TouchableOpacity>
       </LinearGradient>
     );
   };
@@ -631,28 +665,58 @@ export default function MountsHomeScreen() {
               <Text style={styles.mountsTitle}>REELWALL</Text>
 
               <Text style={styles.mountsSubtitle}>
-                Mounted by the fishing community.
+                By the community
               </Text>
             </LinearGradient>
 
-            <View style={styles.mountsBottomRow}>
-              <Text style={styles.mountsBottomText}>Latest Mounts</Text>
+            
 
-              <View style={styles.livePill}>
-                <View style={styles.liveDot} />
-                <Text style={styles.livePillText}>Live</Text>
-              </View>
-            </View>
-          </>
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>No mounts yet</Text>
-            <Text style={styles.emptyText}>
-              Mount a catch from your Wall and it will show up here for others
-              to see.
-            </Text>
-          </View>
+<View style={styles.mountsBottomRow}>
+  <Text style={styles.mountsBottomText}>Latest Mounts</Text>
+
+  <View style={styles.livePill}>
+    <View style={styles.liveDot} />
+    <Text style={styles.livePillText}>Live</Text>
+  </View>
+</View>
+
+<View style={styles.feedFilterRow}>
+  <TouchableOpacity
+    style={[
+      styles.feedFilterPill,
+      feedMode === 'public' && styles.feedFilterPillActive,
+    ]}
+    onPress={() => setFeedMode('public')}
+  >
+    <Text
+      style={[
+        styles.feedFilterText,
+        feedMode === 'public' && styles.feedFilterTextActive,
+      ]}
+    >
+      Public Mounts
+    </Text>
+  </TouchableOpacity>
+
+   <TouchableOpacity
+    style={[
+      styles.feedFilterPill,
+      feedMode === 'following' && styles.feedFilterPillActive,
+    ]}
+    onPress={() => setFeedMode('following')}
+  >
+    <Text
+      style={[
+        styles.feedFilterText,
+        feedMode === 'following' && styles.feedFilterTextActive,
+      ]}
+    >
+      Following
+    </Text>
+  </TouchableOpacity>
+</View>
+</>
+          
         }
       />
 
@@ -827,6 +891,41 @@ const styles = StyleSheet.create({
     paddingBottom: 120,
   },
 
+ feedFilterRow: {
+  flexDirection: 'row',
+  gap: 8,
+  paddingHorizontal: 22,
+  marginTop: 4,
+  marginBottom: 8,
+},
+
+feedFilterPill: {
+  flex: 0,
+  alignItems: 'center',
+  justifyContent: 'center',
+  borderRadius: 999,
+  paddingVertical: 6,
+  paddingHorizontal: 12,
+  backgroundColor: 'rgba(255,255,255,0.06)',
+  borderWidth: 1,
+  borderColor: 'rgba(255,255,255,0.10)',
+},
+
+feedFilterPillActive: {
+  backgroundColor: PRIMARY,
+  borderColor: PRIMARY,
+},
+
+feedFilterText: {
+  color: MUTED,
+  fontSize: 11,
+  fontWeight: '900',
+},
+
+feedFilterTextActive: {
+  color: '#0A2540',
+},
+
   headerLeft: {
     flex: 1,
     justifyContent: 'center',
@@ -963,7 +1062,7 @@ const styles = StyleSheet.create({
 
   mountsTitle: {
     color: TEXT,
-    fontSize: 25,
+    fontSize: 21,
     fontWeight: '900',
     letterSpacing: 1.6,
     marginBottom: 5,
@@ -971,12 +1070,10 @@ const styles = StyleSheet.create({
   },
 
   mountsSubtitle: {
-    color: MUTED,
-    fontSize: 14,
-    fontWeight: '800',
-    lineHeight: 20,
-    maxWidth: 350,
-    textAlign: 'center',
+  color: MUTED,
+  fontSize: 13,
+  fontWeight: '700',
+  opacity: 0.82,
   },
 
   mountsBottomRow: {
@@ -999,30 +1096,31 @@ const styles = StyleSheet.create({
   },
 
   livePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(242,201,76,0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(242,201,76,0.28)',
-    borderRadius: 999,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-  },
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  backgroundColor: 'rgba(242,201,76,0.12)',
+  borderWidth: 1,
+  borderColor: 'rgba(242,201,76,0.28)',
+  borderRadius: 999,
+  paddingVertical: 5,
+  paddingHorizontal: 12,
+},
 
   liveDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: PRIMARY,
-    marginRight: 6,
-  },
+  width: 5,
+  height: 5,
+  borderRadius: 2.5,
+  backgroundColor: PRIMARY,
+  marginRight: 5,
+},
 
   livePillText: {
-    color: PRIMARY,
-    fontSize: 12,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
+  color: PRIMARY,
+  fontSize: 10,
+  fontWeight: '900',
+  letterSpacing: 0.5,
+},
 
   flowPill: {
     zIndex: 4,

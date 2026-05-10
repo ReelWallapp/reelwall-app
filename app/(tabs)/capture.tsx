@@ -640,7 +640,7 @@ export default function CaptureScreen() {
           <Text style={styles.uploadText}>
   {bulkProgress || 'Upload'}
 </Text>
-          <Text style={styles.uploadSubText}>Library</Text>
+          <Text style={styles.uploadSubText}>Photos</Text>
         </TouchableOpacity>
 
         <View style={styles.captureWrap}>
@@ -971,8 +971,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   uploadButton: {
-    width: 100,
-    height: 80,
+    width: 112,
+    height: 100,
     borderRadius: 22,
     backgroundColor: '#F2C94C',
     borderWidth: 2,

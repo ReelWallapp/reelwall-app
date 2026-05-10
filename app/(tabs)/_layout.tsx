@@ -4,6 +4,7 @@ import { Tabs } from 'expo-router';
 import { useRef } from 'react';
 import {
   Animated,
+  Image,
   Platform,
   StyleSheet,
   TouchableWithoutFeedback,
@@ -72,12 +73,13 @@ export default function TabLayout() {
         options={{
           title: 'ReelWall',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? 'trophy' : 'trophy-outline'}
-              size={20}
-              color={color}
-              style={styles.tabIcon}
-            />
+            <Image
+  source={require('../../assets/logo.png')}
+  style={[
+    styles.reelwallTabLogo,
+    { opacity: focused ? 1 : 0.80 },
+  ]}
+/>
           ),
         }}
       />
@@ -90,7 +92,7 @@ export default function TabLayout() {
             <Ionicons
               name={focused ? 'apps' : 'apps-outline'}
               size={20}
-              color={color}
+              color="#F2C94C"
               style={styles.tabIcon}
             />
           ),
@@ -119,7 +121,7 @@ export default function TabLayout() {
             <Ionicons
               name={focused ? 'layers' : 'layers-outline'}
               size={20}
-              color={color}
+              color="#F2C94C"
               style={styles.tabIcon}
             />
           ),
@@ -130,11 +132,13 @@ export default function TabLayout() {
   options={{
     title: 'Vault',
     tabBarIcon: ({ color, focused }) => (
-      <Ionicons
-        name={focused ? 'shield-checkmark' : 'shield-checkmark-outline'}
-        size={20}
-        color={color}
-      />
+      <Image
+  source={require('../../assets/livewell-vault-logo.png')}
+  style={[
+    styles.vaultTabLogo,
+    { opacity: focused ? 1 : 0.80 },
+  ]}
+/>
     ),
   }}
 />
@@ -180,6 +184,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
 
+  vaultTabLogo: {
+  width: 29,
+  height: 29,
+  resizeMode: 'contain',
+  marginBottom: -2,
+},
+
   tabBarItem: {
     flex: 1,
     alignItems: 'center',
@@ -198,6 +209,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: 76,
   },
+
+  reelwallTabLogo: {
+  width: 29,
+  height: 29,
+  resizeMode: 'contain',
+  marginBottom: -2,
+},
 
   captureButton: {
     width: 66,

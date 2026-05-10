@@ -54,6 +54,9 @@ export default function PublicProfileScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [vaultedCount, setVaultedCount] = useState(0);
   const [highFiveCount, setHighFiveCount] = useState(0);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [isOwnProfile, setIsOwnProfile] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
 
   const getPublicImageUrl = (value?: string | null) => {
     if (!value) return '';
@@ -69,6 +72,28 @@ export default function PublicProfileScreen() {
 
   const loadProfile = async () => {
     if (!id) return;
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    const currentUserId = user?.id || null;
+    const viewingOwnProfile = currentUserId === id;
+
+    setIsOwnProfile(viewingOwnProfile);
+
+    if (currentUserId && !viewingOwnProfile) {
+      const { data: followData } = await supabase
+        .from('user_follows')
+        .select('id')
+        .eq('follower_id', currentUserId)
+        .eq('following_id', id)
+        .maybeSingle();
+
+      setIsFollowing(!!followData);
+    } else {
+      setIsFollowing(false);
+    }
 
     const { data: profileData, error: profileError } = await supabase
       .from('profiles')
@@ -122,6 +147,42 @@ export default function PublicProfileScreen() {
       }
     } else {
       setHighFiveCount(0);
+    }
+  };
+
+  const toggleFollow = async () => {
+    if (!id || followLoading || isOwnProfile) return;
+
+    try {
+      setFollowLoading(true);
+
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
+
+      if (error || !user) return;
+
+      if (isFollowing) {
+        await supabase
+          .from('user_follows')
+          .delete()
+          .eq('follower_id', user.id)
+          .eq('following_id', id);
+
+        setIsFollowing(false);
+      } else {
+        await supabase.from('user_follows').upsert({
+          follower_id: user.id,
+          following_id: id,
+        });
+
+        setIsFollowing(true);
+      }
+    } catch (error) {
+      console.log('Follow toggle error:', error);
+    } finally {
+      setFollowLoading(false);
     }
   };
 
@@ -226,6 +287,32 @@ export default function PublicProfileScreen() {
               <Text style={styles.profileName}>{displayName}</Text>
 
               {!!username && <Text style={styles.username}>{username}</Text>}
+
+              {!isOwnProfile && (
+                <TouchableOpacity
+                  style={[
+                    styles.followButton,
+                    isFollowing && styles.followButtonActive,
+                  ]}
+                  onPress={toggleFollow}
+                  activeOpacity={0.85}
+                  disabled={followLoading}
+                >
+                  <Ionicons
+                    name={isFollowing ? 'checkmark' : 'add'}
+                    size={15}
+                    color={isFollowing ? PRIMARY : '#102C47'}
+                  />
+                  <Text
+                    style={[
+                      styles.followButtonText,
+                      isFollowing && styles.followButtonTextActive,
+                    ]}
+                  >
+                    {isFollowing ? 'Following' : 'Follow'}
+                  </Text>
+                </TouchableOpacity>
+              )}
 
               <View style={styles.statsRow}>
                 <View style={styles.statBox}>
@@ -402,6 +489,33 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     marginTop: 6,
+  },
+
+  followButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: PRIMARY,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+    marginTop: 12,
+  },
+
+  followButtonActive: {
+    backgroundColor: 'rgba(242,201,76,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(242,201,76,0.45)',
+  },
+
+  followButtonText: {
+    color: '#102C47',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+
+  followButtonTextActive: {
+    color: PRIMARY,
   },
 
   statsRow: {

@@ -17,24 +17,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ensureProfileExistsAndSyncLocal } from '../../lib/profile-sync';
 import { supabase } from '../../lib/supabase';
 
-
-
 type CatchItem = {
   id: string;
   isPersonalBest?: boolean;
 };
 
-type PrivacySettings = {
-  profileVisibility: 'public' | 'private';
-  locationVisibility: LocationVisibility;
-};
-
-type LocationVisibility = 'exact' | 'approximate' | 'hidden';
-
 const STORAGE_KEY = 'reelwall_catches';
 const PROFILE_NAME_KEY = 'reelwall_profile_name';
 const PROFILE_PHOTO_KEY = 'reelwall_profile_photo';
-const SETTINGS_KEY = 'reelwall_privacy_settings';
 const PROFILE_LOCATION_KEY = 'reelwall_profile_location';
 const PROFILE_BOAT_KEY = 'reelwall_profile_boat';
 const PROFILE_SPECIES_KEY = 'reelwall_profile_species';
@@ -44,90 +34,68 @@ const PRIMARY = '#F2C94C';
 export default function Profile() {
   const [catchCount, setCatchCount] = useState(0);
   const [pbCount, setPbCount] = useState(0);
-  const [collectionCount, setCollectionCount] = useState(0);
   const [vaultedCount, setVaultedCount] = useState(0);
-  const [highFiveCount, setHighFiveCount] = useState(0);
+  const [followersCount, setFollowersCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
+
   const [name, setName] = useState('Your ReelWall');
   const [profilePhotoUri, setProfilePhotoUri] = useState<string | null>(null);
 
   const [location, setLocation] = useState('');
   const [boat, setBoat] = useState('');
   const [species, setSpecies] = useState('');
-  const [technique, setTechnique] = useState(''); // ✅ MOVE HERE
-
-  const [privacySettings, setPrivacySettings] = useState<PrivacySettings>({
-    profileVisibility: 'private',
-    locationVisibility: 'hidden',
-  });
-
-  const [showPrivacyScreen, setShowPrivacyScreen] = useState(false);
+  const [technique, setTechnique] = useState('');
 
   const loadStats = async () => {
-  try {
-    const savedCatches = await AsyncStorage.getItem(STORAGE_KEY);
-    const catches: CatchItem[] = savedCatches ? JSON.parse(savedCatches) : [];
+    try {
+      const savedCatches = await AsyncStorage.getItem(STORAGE_KEY);
+      const catches: CatchItem[] = savedCatches ? JSON.parse(savedCatches) : [];
 
-    setCatchCount(catches.length);
-    setPbCount(catches.filter((c) => c.isPersonalBest).length);
+      setCatchCount(catches.length);
+      setPbCount(catches.filter((c) => c.isPersonalBest).length);
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
 
-    if (userError || !user) {
-      setCollectionCount(0);
-      setVaultedCount(0);
-      setHighFiveCount(0);
-      return;
-    }
-
-    const { count: vaultedTotal, error: vaultError } = await supabase
-      .from('vault_records')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id);
-
-    if (!vaultError) {
-      setVaultedCount(vaultedTotal || 0);
-    }
-
-    const { data: userCatches, error: catchesError } = await supabase
-      .from('catches')
-      .select('id')
-      .eq('user_id', user.id);
-
-    if (!catchesError && userCatches && userCatches.length > 0) {
-      const catchIds = userCatches.map((item) => item.id);
-
-      const { count: highFiveTotal, error: highFiveError } = await supabase
-  .from('catch_reactions')
-  .select('*', { count: 'exact', head: true })
-  .in('catch_id', catchIds)
-  .neq('user_id', user.id);
-
-      if (!highFiveError) {
-        setHighFiveCount(highFiveTotal || 0);
+      if (userError || !user) {
+        setVaultedCount(0);
+        setFollowersCount(0);
+        setFollowingCount(0);
+        return;
       }
-    } else {
-      setHighFiveCount(0);
+
+      const { count: followersTotal, error: followersError } = await supabase
+        .from('user_follows')
+        .select('*', { count: 'exact', head: true })
+        .eq('following_id', user.id);
+
+      if (!followersError) {
+        setFollowersCount(followersTotal || 0);
+      }
+
+      const { count: followingTotal, error: followingError } = await supabase
+        .from('user_follows')
+        .select('*', { count: 'exact', head: true })
+        .eq('follower_id', user.id);
+
+      if (!followingError) {
+        setFollowingCount(followingTotal || 0);
+      }
+
+      const { count: vaultedTotal, error: vaultError } = await supabase
+        .from('vault_records')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      if (!vaultError) {
+        setVaultedCount(vaultedTotal || 0);
+      }
+    } catch (error) {
+      console.log('Profile stats load error:', error);
     }
-
-    const { count, error: collectionsError } = await supabase
-      .from('collections')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id);
-
-    if (collectionsError) {
-      console.log('Profile collections count load error:', collectionsError);
-      setCollectionCount(0);
-      return;
-    }
-
-    setCollectionCount(count || 0);
-  } catch (error) {
-    console.log('Profile stats load error:', error);
-  }
-};
+  };
 
   const loadName = async () => {
     try {
@@ -157,23 +125,11 @@ export default function Profile() {
       const savedBoat = await AsyncStorage.getItem(PROFILE_BOAT_KEY);
       const savedSpecies = await AsyncStorage.getItem(PROFILE_SPECIES_KEY);
 
-
       if (savedLocation) setLocation(savedLocation);
       if (savedBoat) setBoat(savedBoat);
       if (savedSpecies) setSpecies(savedSpecies);
     } catch (error) {
       console.log('Profile details load error:', error);
-    }
-  };
-
-  const loadPrivacy = async () => {
-    try {
-      const saved = await AsyncStorage.getItem(SETTINGS_KEY);
-      if (saved) {
-        setPrivacySettings(JSON.parse(saved));
-      }
-    } catch (error) {
-      console.log('Privacy settings load error:', error);
     }
   };
 
@@ -226,25 +182,11 @@ export default function Profile() {
     }
   };
 
-  const savePrivacySettings = async (nextSettings: PrivacySettings) => {
-    try {
-      setPrivacySettings(nextSettings);
-      await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(nextSettings));
-    } catch (error) {
-      console.log('Privacy save error:', error);
-    }
-  };
-
   const loadAll = async () => {
     await loadStats();
-    await loadPrivacy();
-
-  
     await loadName();
     await loadPhoto();
     await loadProfileDetails();
-
-    
     await loadProfileFromSupabase();
   };
 
@@ -258,245 +200,72 @@ export default function Profile() {
     }, [])
   );
 
-const handleDeleteAccount = () => {
-  Alert.prompt(
-    'Delete Account',
-    'Type DELETE to permanently remove your account.',
-    [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Confirm',
-        style: 'destructive',
-        onPress: async (text?: string) => {
-  if (text !== 'DELETE') {
-    Alert.alert('Not deleted', 'You must type DELETE exactly.');
-    return;
-  }
-          
-
-          try {
-            const { error } = await supabase.functions.invoke('delete-account');
-
-            if (error) {
-              Alert.alert('Error', 'Could not delete account.');
+  const handleDeleteAccount = () => {
+    Alert.prompt(
+      'Delete Account',
+      'Type DELETE to permanently remove your account.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Confirm',
+          style: 'destructive',
+          onPress: async (text?: string) => {
+            if (text !== 'DELETE') {
+              Alert.alert('Not deleted', 'You must type DELETE exactly.');
               return;
             }
 
-            await AsyncStorage.clear();
-            await supabase.auth.signOut();
-            router.replace('/login');
-          } catch (err) {
-            console.log(err);
-            Alert.alert('Error', 'Something went wrong.');
-          }
-        },
-      },
-    ],
-    'plain-text'
-  );
-};
-  
- const handleLogout = () => {
-  Alert.alert(
-    'Log Out',
-    'You’ll need to log back in to access your ReelWall.',
-    [
-      {
-        text: 'Cancel',
-        style: 'cancel',
-      },
-      {
-        text: 'Log Out',
-        style: 'destructive', // 👈 gives it emphasis
-        onPress: async () => {
-          try {
-            await supabase.auth.signOut();
-            await AsyncStorage.clear();
-            router.replace('/login');
-          } catch (error) {
-            console.log('Logout error:', error);
-          }
-        },
-      },
-    ]
-  );
-};
+            try {
+              const { error } = await supabase.functions.invoke('delete-account');
 
+              if (error) {
+                Alert.alert('Error', 'Could not delete account.');
+                return;
+              }
 
-  const getLocationLabel = () => {
-    if (privacySettings.locationVisibility === 'exact') return 'Exact';
-    if (privacySettings.locationVisibility === 'approximate') return 'Approximate';
-    return 'Hidden';
+              await AsyncStorage.clear();
+              await supabase.auth.signOut();
+              router.replace('/login');
+            } catch (err) {
+              console.log(err);
+              Alert.alert('Error', 'Something went wrong.');
+            }
+          },
+        },
+      ],
+      'plain-text'
+    );
   };
 
-  if (showPrivacyScreen) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <ScrollView contentContainerStyle={styles.content}>
-          <View style={styles.privacyHeaderRow}>
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => setShowPrivacyScreen(false)}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="chevron-back" size={18} color="#F5F7FA" />
-              <Text style={styles.backButtonText}>Profile</Text>
-            </TouchableOpacity>
-          </View>
-
-          <Text style={styles.privacyEyebrow}>PRIVACY</Text>
-          <Text style={styles.privacyTitle}>Privacy Settings</Text>
-          <Text style={styles.privacySubtitle}>
-            Control how your wall and catch details appear.
-          </Text>
-
-          <View style={styles.infoCard}>
-            <Text style={styles.infoTitle}>Profile Visibility</Text>
-
-            <View style={styles.segmentedWrap}>
-              <TouchableOpacity
-                activeOpacity={0.85}
-                style={[
-                  styles.segmentButton,
-                  privacySettings.profileVisibility === 'public' &&
-                    styles.segmentButtonActive,
-                ]}
-                onPress={() =>
-                  savePrivacySettings({
-                    ...privacySettings,
-                    profileVisibility: 'public',
-                  })
-                }
-              >
-                <Text
-                  style={[
-                    styles.segmentButtonText,
-                    privacySettings.profileVisibility === 'public' &&
-                      styles.segmentButtonTextActive,
-                  ]}
-                >
-                  Public
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                activeOpacity={0.85}
-                style={[
-                  styles.segmentButton,
-                  privacySettings.profileVisibility === 'private' &&
-                    styles.segmentButtonActive,
-                ]}
-                onPress={() =>
-                  savePrivacySettings({
-                    ...privacySettings,
-                    profileVisibility: 'private',
-                  })
-                }
-              >
-                <Text
-                  style={[
-                    styles.segmentButtonText,
-                    privacySettings.profileVisibility === 'private' &&
-                      styles.segmentButtonTextActive,
-                  ]}
-                >
-                  Private
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <View style={styles.infoCard}>
-            <Text style={styles.infoTitle}>Location Visibility</Text>
-            <Text style={styles.infoText}>
-              Choose how much location detail appears on your wall.
-            </Text>
-
-            <TouchableOpacity
-              activeOpacity={0.85}
-              style={[
-                styles.optionCard,
-                privacySettings.locationVisibility === 'exact' &&
-                  styles.optionCardActive,
-              ]}
-              onPress={() =>
-                savePrivacySettings({
-                  ...privacySettings,
-                  locationVisibility: 'exact',
-                })
-              }
-            >
-              <View style={styles.optionTextWrap}>
-                <Text style={styles.optionTitle}>Exact</Text>
-                <Text style={styles.optionText}>
-                  Show the full saved location when available.
-                </Text>
-              </View>
-              {privacySettings.locationVisibility === 'exact' && (
-                <Ionicons name="checkmark-circle" size={22} color={PRIMARY} />
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.85}
-              style={[
-                styles.optionCard,
-                privacySettings.locationVisibility === 'approximate' &&
-                  styles.optionCardActive,
-              ]}
-              onPress={() =>
-                savePrivacySettings({
-                  ...privacySettings,
-                  locationVisibility: 'approximate',
-                })
-              }
-            >
-              <View style={styles.optionTextWrap}>
-                <Text style={styles.optionTitle}>Approximate</Text>
-                <Text style={styles.optionText}>
-                  Show only the broader area or region.
-                </Text>
-              </View>
-              {privacySettings.locationVisibility === 'approximate' && (
-                <Ionicons name="checkmark-circle" size={22} color={PRIMARY} />
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.85}
-              style={[
-                styles.optionCard,
-                privacySettings.locationVisibility === 'hidden' &&
-                  styles.optionCardActive,
-              ]}
-              onPress={() =>
-                savePrivacySettings({
-                  ...privacySettings,
-                  locationVisibility: 'hidden',
-                })
-              }
-            >
-              <View style={styles.optionTextWrap}>
-                <Text style={styles.optionTitle}>Hidden</Text>
-                <Text style={styles.optionText}>
-                  Do not show location on your wall.
-                </Text>
-              </View>
-              {privacySettings.locationVisibility === 'hidden' && (
-                <Ionicons name="checkmark-circle" size={22} color={PRIMARY} />
-              )}
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </SafeAreaView>
+  const handleLogout = () => {
+    Alert.alert(
+      'Log Out',
+      'You’ll need to log back in to access your ReelWall.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Log Out',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await supabase.auth.signOut();
+              await AsyncStorage.clear();
+              router.replace('/login');
+            } catch (error) {
+              console.log('Logout error:', error);
+            }
+          },
+        },
+      ]
     );
-  }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        
-
         <View style={styles.profileHeader}>
           <View style={styles.avatar}>
             {profilePhotoUri ? (
@@ -510,38 +279,41 @@ const handleDeleteAccount = () => {
           <Text style={styles.profileSub}>Your ReelWall</Text>
 
           <TouchableOpacity
-  style={styles.editProfileButton}
-  onPress={() => router.push('/edit-profile')}
-  activeOpacity={0.85}
->
-  <Ionicons name="pencil" size={14} color="#102C47" />
-  <Text style={styles.editProfileButtonText}>Edit</Text>
-</TouchableOpacity>
-
-          
+            style={styles.editProfileButton}
+            onPress={() => router.push('/edit-profile')}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="pencil" size={14} color="#102C47" />
+            <Text style={styles.editProfileButtonText}>Edit</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.statsRow}>
-  <View style={styles.statBox}>
-    <Text style={styles.statNumber}>{catchCount}</Text>
-    <Text style={styles.statLabel}>Mounts</Text>
-  </View>
+          <View style={styles.statBox}>
+            <Text style={styles.statNumber}>{catchCount}</Text>
+            <Text style={styles.statLabel}>Mounts</Text>
+          </View>
 
-  <View style={styles.statBox}>
-    <Text style={styles.statNumber}>{pbCount}</Text>
-    <Text style={styles.statLabel}>PBs</Text>
-  </View>
+          <View style={styles.statBox}>
+            <Text style={styles.statNumber}>{pbCount}</Text>
+            <Text style={styles.statLabel}>PBs</Text>
+          </View>
 
-  <View style={styles.statBox}>
-    <Text style={styles.statNumber}>{vaultedCount}</Text>
-    <Text style={styles.statLabel}>Vaulted</Text>
-  </View>
+          <View style={styles.statBox}>
+            <Text style={styles.statNumber}>{vaultedCount}</Text>
+            <Text style={styles.statLabel}>Vaulted</Text>
+          </View>
 
-  <View style={styles.statBox}>
-    <Text style={styles.statNumber}>{highFiveCount}</Text>
-    <Text style={styles.statLabel}>High Fives</Text>
-  </View>
-</View>
+          <View style={styles.statBox}>
+            <Text style={styles.statNumber}>{followersCount}</Text>
+            <Text style={styles.statLabel}>Followers</Text>
+          </View>
+
+          <View style={styles.statBox}>
+            <Text style={styles.statNumber}>{followingCount}</Text>
+            <Text style={styles.statLabel}>Following</Text>
+          </View>
+        </View>
 
         <View style={styles.infoCard}>
           <Text style={styles.infoTitle}>About you the Angler</Text>
@@ -552,64 +324,41 @@ const handleDeleteAccount = () => {
           </View>
 
           <View style={styles.profileRow}>
-  <Text style={styles.profileLabel}>Most Targeted Species</Text>
-  <Text style={styles.profileValue}>{species || 'Not set'}</Text>
-</View>
+            <Text style={styles.profileLabel}>Most Targeted Species</Text>
+            <Text style={styles.profileValue}>{species || 'Not set'}</Text>
+          </View>
 
-<View style={styles.profileRow}>
-  <Text style={styles.profileLabel}>Favorite Technique</Text>
-  <Text style={styles.profileValue}>
-    {technique || 'Not set'}
-  </Text>
-</View>
+          <View style={styles.profileRow}>
+            <Text style={styles.profileLabel}>Favorite Technique</Text>
+            <Text style={styles.profileValue}>{technique || 'Not set'}</Text>
+          </View>
 
-<View style={styles.profileRowNoBorder}>
-  <Text style={styles.profileLabel}>Boat (if any)</Text>
-  <Text style={styles.profileValue}>{boat || 'Not set'}</Text>
-</View>
+          <View style={styles.profileRowNoBorder}>
+            <Text style={styles.profileLabel}>Boat (if any)</Text>
+            <Text style={styles.profileValue}>{boat || 'Not set'}</Text>
+          </View>
         </View>
 
         <View style={styles.infoCard}>
-          <Text style={styles.infoTitle}>Privacy</Text>
-
           <TouchableOpacity
+            style={styles.logoutPrimary}
+            onPress={handleLogout}
             activeOpacity={0.85}
-            style={styles.linkRow}
-            onPress={() => setShowPrivacyScreen(true)}
           >
-            <View style={styles.linkTextWrap}>
-              <Text style={styles.linkTitle}>Privacy Settings</Text>
-              <Text style={styles.linkSubtitle}>
-                {privacySettings.profileVisibility === 'public' ? 'Public' : 'Private'} •{' '}
-                {getLocationLabel()} location
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color="#A5B3C2" />
+            <Ionicons name="log-out-outline" size={16} color="#102C47" />
+            <Text style={styles.logoutPrimaryText}>Log Out</Text>
           </TouchableOpacity>
         </View>
 
-       <View style={styles.infoCard}>
-  <TouchableOpacity
-    style={styles.logoutPrimary}
-    onPress={handleLogout}
-    activeOpacity={0.85}
-  >
-    <Ionicons name="log-out-outline" size={16} color="#102C47" />
-    <Text style={styles.logoutPrimaryText}>Log Out</Text>
-  </TouchableOpacity>
-</View>
-
         <View style={styles.infoCard}>
-  <TouchableOpacity
-    style={styles.deleteAccountButton}
-    onPress={handleDeleteAccount}
-    activeOpacity={0.85}
-  >
-    <Text style={styles.deleteAccountButtonText}>
-      Delete Account
-    </Text>
-  </TouchableOpacity>
-</View>
+          <TouchableOpacity
+            style={styles.deleteAccountButton}
+            onPress={handleDeleteAccount}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.deleteAccountButtonText}>Delete Account</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -625,38 +374,19 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 40,
   },
-  headerTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  headerSpacer: {
-    width: 40,
-  },
-
   logoutPrimary: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: 6,
-  backgroundColor: '#F2C94C',
-  paddingVertical: 12,
-  borderRadius: 14,
-},
-
-logoutPrimaryText: {
-  color: '#102C47',
-  fontWeight: '800',
-  fontSize: 14,
-},
-  editIconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#102C47',
-    justifyContent: 'center',
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#F2C94C',
+    paddingVertical: 12,
+    borderRadius: 14,
+  },
+  logoutPrimaryText: {
+    color: '#102C47',
+    fontWeight: '800',
+    fontSize: 14,
   },
   profileHeader: {
     alignItems: 'center',
@@ -692,113 +422,74 @@ logoutPrimaryText: {
     marginBottom: 16,
   },
   infoCard: {
-  backgroundColor: '#102C47',
-  borderRadius: 20,
-  padding: 18,
-  marginBottom: 16,
-  borderWidth: 1,
-  borderColor: 'rgba(255,255,255,0.05)',
-},
+    backgroundColor: '#102C47',
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
   editProfileButton: {
-  flexDirection: 'row',        // 👈 important
-  alignItems: 'center',
-  gap: 6,                      // spacing between icon + text
-  backgroundColor: '#F2C94C',
-  paddingVertical: 6,
-  paddingHorizontal: 12,
-  borderRadius: 999,
-  marginTop: 10,
-},
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#F2C94C',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    marginTop: 10,
+  },
   editProfileButtonText: {
-  color: '#102C47',
-  fontWeight: '700',
-  fontSize: 13,
-},
+    color: '#102C47',
+    fontWeight: '700',
+    fontSize: 13,
+  },
   deleteAccountButton: {
-  marginTop: 8,
-  backgroundColor: 'transparent',
-  paddingVertical: 6,
-  paddingHorizontal: 14,
-  borderRadius: 10,
-  borderWidth: 1,
-  borderColor: 'rgba(255,107,107,0.35)',
-  alignItems: 'center',      // ✅ THIS centers horizontally
-  justifyContent: 'center',  // ✅ THIS centers vertically (good practice)
-},
+    marginTop: 8,
+    backgroundColor: 'transparent',
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,107,107,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   deleteAccountButtonText: {
     color: '#FF6B6B',
     fontWeight: '700',
     fontSize: 12,
   },
- statsRow: {
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  marginBottom: 20,
-},
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 6,
+    marginBottom: 20,
+  },
   statBox: {
-  width: '23%',
-  backgroundColor: '#102C47',
-  borderRadius: 14,
-  paddingVertical: 10,
-  alignItems: 'center',
-},
+    flex: 1,
+    backgroundColor: '#102C47',
+    borderRadius: 14,
+    paddingVertical: 9,
+    alignItems: 'center',
+  },
   statNumber: {
-  color: '#F2C94C',
-  fontSize: 18,
-  fontWeight: '800',
-},
-logoutRow: {
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  paddingVertical: 4,
-},
-
-logoutText: {
-  color: '#A5B3C2',
-  fontSize: 15,
-  fontWeight: '700',
-},
+    color: '#F2C94C',
+    fontSize: 16,
+    fontWeight: '800',
+  },
   statLabel: {
-  color: '#A5B3C2',
-  fontSize: 10,
-  fontWeight: '700',
-  marginTop: 2,
-},
+    color: '#A5B3C2',
+    fontSize: 8,
+    fontWeight: '700',
+    marginTop: 2,
+    textAlign: 'center',
+  },
   infoTitle: {
     color: '#F5F7FA',
     fontSize: 18,
     fontWeight: '800',
     marginBottom: 8,
-  },
-  infoText: {
-    color: '#A5B3C2',
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  linkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#081E33',
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-  },
-  linkTextWrap: {
-    flex: 1,
-    paddingRight: 12,
-  },
-  linkTitle: {
-    color: '#F5F7FA',
-    fontSize: 15,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  linkSubtitle: {
-    color: '#A5B3C2',
-    fontSize: 13,
-    lineHeight: 18,
   },
   profileRow: {
     flexDirection: 'row',
@@ -825,98 +516,5 @@ logoutText: {
     fontWeight: '700',
     flex: 1,
     textAlign: 'right',
-  },
-  privacyHeaderRow: {
-    marginBottom: 8,
-  },
-  backButton: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#102C47',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 999,
-    gap: 4,
-  },
-  backButtonText: {
-    color: '#F5F7FA',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  privacyEyebrow: {
-    color: PRIMARY,
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-    marginBottom: 8,
-  },
-  privacyTitle: {
-    color: '#F5F7FA',
-    fontSize: 30,
-    fontWeight: '800',
-    marginBottom: 10,
-  },
-  privacySubtitle: {
-    color: '#A5B3C2',
-    fontSize: 15,
-    lineHeight: 22,
-    marginBottom: 20,
-  },
-  segmentedWrap: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  segmentButton: {
-    flex: 1,
-    backgroundColor: '#081E33',
-    borderRadius: 16,
-    paddingVertical: 14,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  segmentButtonActive: {
-    borderColor: PRIMARY,
-    backgroundColor: '#12314F',
-  },
-  segmentButtonText: {
-    color: '#D7DEE6',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  segmentButtonTextActive: {
-    color: PRIMARY,
-  },
-  optionCard: {
-    backgroundColor: '#081E33',
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    marginTop: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  optionCardActive: {
-    borderColor: PRIMARY,
-    backgroundColor: '#12314F',
-  },
-  optionTextWrap: {
-    flex: 1,
-    paddingRight: 12,
-  },
-  optionTitle: {
-    color: '#F5F7FA',
-    fontSize: 15,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  optionText: {
-    color: '#A5B3C2',
-    fontSize: 13,
-    lineHeight: 18,
   },
 });

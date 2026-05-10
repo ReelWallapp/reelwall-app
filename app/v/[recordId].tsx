@@ -5,14 +5,14 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Image,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Image,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 const PRIMARY = '#F2C94C';
@@ -86,9 +86,8 @@ export default function PublicVaultVerificationScreen() {
   const imageUrl = getPublicImageUrl(record.image_url);
   const location = getLocation(record);
 
-  const catchDate = record.catch_date
-    ? formatDate(record.catch_date, 'long')
-    : 'Catch date not provided';
+  const catchDate =
+  record.catch_date || 'Catch date not provided';
 
   const preservedDate = record.created_at
     ? formatDate(record.created_at, 'long')

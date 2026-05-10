@@ -157,10 +157,7 @@ export default function VaultDetailScreen() {
   const imageUrl = getPublicImageUrl(record.image_url);
   const location = getLocation(record);
 
-  const catchDate = record.catch_date
-    ? formatDate(record.catch_date, 'long')
-    : 'Catch date not provided';
-
+  const catchDate = record.catch_date || 'Catch date not provided';
   const preservedDate = record.created_at
     ? formatDate(record.created_at, 'long')
     : 'Date preserved';

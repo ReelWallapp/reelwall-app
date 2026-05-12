@@ -124,6 +124,16 @@ function getCollectionUrl(collectionId: string) {
   return `https://www.reelwall.app/collections/${collectionId}`;
 }
 
+async function handleViewOthersCollections() {
+  const url = 'https://www.reelwall.app/collections';
+
+  try {
+    await WebBrowser.openBrowserAsync(url);
+  } catch (error) {
+    Alert.alert('Could not open collections', url);
+  }
+}
+
 async function handleViewOnWeb(collection: CollectionItem) {
   if (!collection.is_public) {
     Alert.alert('Private Collection', 'Make this collection public to view it on the web.');
@@ -822,13 +832,23 @@ export default function CollectionsScreen() {
 Keep them private — or share.
             </Text>
 
-            <TouchableOpacity
-              style={styles.primaryButton}
-              onPress={() => setShowCreateModal(true)}
-              activeOpacity={0.88}
-            >
-              <Text style={styles.primaryButtonText}>Start a Collection</Text>
-            </TouchableOpacity>
+            <View style={styles.headerButtonRow}>
+              <TouchableOpacity
+                style={styles.primaryButton}
+                onPress={() => setShowCreateModal(true)}
+                activeOpacity={0.88}
+              >
+                <Text style={styles.primaryButtonText}>Start a Collection</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.webCollectionsButton}
+                onPress={handleViewOthersCollections}
+                activeOpacity={0.88}
+              >
+                <Text style={styles.webCollectionsButtonText}>View Others</Text>
+              </TouchableOpacity>
+            </View>
 
             <View style={styles.pageSummaryRow}>
               <View style={styles.pageSummaryCard}>
@@ -1143,18 +1163,18 @@ Keep them private — or share.
                   columnWrapperStyle={styles.manageGridRow}
                   contentContainerStyle={styles.manageGrid}
                   ListFooterComponent={
-  selectedCollectionFresh ? (
-    <TouchableOpacity
-      style={styles.deleteCollectionButtonBottom}
-      onPress={() => deleteCollection(selectedCollectionFresh.id)}
-      activeOpacity={0.88}
-    >
-      <Text style={styles.deleteCollectionButtonText}>
-        Delete Collection
-      </Text>
-    </TouchableOpacity>
-  ) : null
-}
+                    selectedCollectionFresh ? (
+                      <TouchableOpacity
+                        style={styles.deleteCollectionButtonBottom}
+                        onPress={() => deleteCollection(selectedCollectionFresh.id)}
+                        activeOpacity={0.88}
+                      >
+                        <Text style={styles.deleteCollectionButtonText}>
+                          Delete Collection
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null
+                  }
                   keyboardShouldPersistTaps="handled"
                   showsVerticalScrollIndicator={false}
                   initialNumToRender={8}
@@ -1163,8 +1183,6 @@ Keep them private — or share.
                   removeClippedSubviews={Platform.OS === 'android'}
                 />
               )}
-
-              
             </View>
           </View>
         </KeyboardAvoidingView>
@@ -1368,6 +1386,13 @@ const styles = StyleSheet.create({
     height: '100%',
   },
 
+  headerButtonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flexWrap: 'wrap',
+  },
+
   primaryButton: {
     backgroundColor: PRIMARY,
     alignSelf: 'flex-start',
@@ -1378,6 +1403,22 @@ const styles = StyleSheet.create({
 
   primaryButtonText: {
     color: '#0A2540',
+    fontWeight: '900',
+    fontSize: 15,
+  },
+
+  webCollectionsButton: {
+    backgroundColor: CARD_DARK,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 18,
+    paddingVertical: 13,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(242,201,76,0.28)',
+  },
+
+  webCollectionsButtonText: {
+    color: PRIMARY,
     fontWeight: '900',
     fontSize: 15,
   },
@@ -1723,17 +1764,17 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
 
- visibilityOption: {
-  flex: 1, // or width: 110 if you're using fixed width
-  backgroundColor: CARD_DARK,
-  borderRadius: 999,
-  paddingVertical: 8,
-  paddingHorizontal: 10,
-  borderWidth: 1,
-  borderColor: 'rgba(255,255,255,0.07)',
-  alignItems: 'center',       // ✅ horizontal center
-  justifyContent: 'center',   // ✅ vertical center
-},
+  visibilityOption: {
+    flex: 1,
+    backgroundColor: CARD_DARK,
+    borderRadius: 999,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.07)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
   visibilityOptionActive: {
     borderColor: 'rgba(242,201,76,0.75)',
@@ -1741,11 +1782,11 @@ const styles = StyleSheet.create({
   },
 
   visibilityOptionTitle: {
-  color: TEXT,
-  fontSize: 12,
-  fontWeight: '900',
-  textAlign: 'center',        // ✅ ensures text itself is centered
-},
+    color: TEXT,
+    fontSize: 12,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
 
   visibilityOptionTitleActive: {
     color: 'none',
@@ -1770,17 +1811,17 @@ const styles = StyleSheet.create({
   },
 
   manageVisibilityCard: {
-  backgroundColor: 'transparent',
-  marginBottom: 8,
-},
+    backgroundColor: 'transparent',
+    marginBottom: 8,
+  },
 
-manageVisibilityLabel: {
-  color: MUTED,
-  fontSize: 11,
-  fontWeight: '900',
-  marginBottom: 6,
-  textTransform: 'uppercase',
-},
+  manageVisibilityLabel: {
+    color: MUTED,
+    fontSize: 11,
+    fontWeight: '900',
+    marginBottom: 6,
+    textTransform: 'uppercase',
+  },
 
   manageSourceRow: {
     flexDirection: 'row',
@@ -1841,15 +1882,15 @@ manageVisibilityLabel: {
   },
 
   deleteCollectionButtonBottom: {
-  marginTop: 18,
-  marginBottom: 24,
-  backgroundColor: 'rgba(232,108,108,0.14)',
-  borderWidth: 1,
-  borderColor: 'rgba(232,108,108,0.4)',
-  paddingVertical: 14,
-  borderRadius: 16,
-  alignItems: 'center',
-},
+    marginTop: 18,
+    marginBottom: 24,
+    backgroundColor: 'rgba(232,108,108,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(232,108,108,0.4)',
+    paddingVertical: 14,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
 
   deleteCollectionButtonText: {
     color: DANGER,

@@ -69,9 +69,14 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="index"
-        options={{
-          title: 'ReelWall',
+  name="index"
+  listeners={{
+    tabPress: (e) => {
+      global.scrollMountsToTop?.();
+    },
+  }}
+  options={{
+    title: 'ReelWall',
           tabBarIcon: ({ color, focused }) => (
             <Image
   source={require('../../assets/logo.png')}

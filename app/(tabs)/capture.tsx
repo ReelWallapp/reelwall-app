@@ -26,8 +26,6 @@ type CatchItem = {
   createdAt: string;
   placeName?: string;
   regionName?: string;
-  weatherTemp?: number;
-  weatherDescription?: string;
   note?: string;
   isPersonalBest?: boolean;
   source?: 'camera' | 'upload';
@@ -39,7 +37,6 @@ type CaptureQuality = 'standard' | 'high';
 type CaptureTimer = 0 | 3 | 10;
 
 const STORAGE_KEY = 'reelwall_catches';
-const WEATHER_API_KEY = process.env.EXPO_PUBLIC_OPENWEATHER_API_KEY;
 const { width, height } = Dimensions.get('window');
 
 export default function CaptureScreen() {
@@ -74,67 +71,37 @@ export default function CaptureScreen() {
     createdAt: item.created_at,
     placeName: item.place_name || undefined,
     regionName: item.region_name || undefined,
-    weatherTemp: item.weather_temp ?? undefined,
-    weatherDescription: item.weather_description || undefined,
     note: item.note || '',
     isPersonalBest: item.is_personal_best ?? false,
     source: item.source || 'camera',
   });
 
-  const getWeather = async (latitude: number, longitude: number) => {
-    try {
-      if (!WEATHER_API_KEY) return {};
-
-      const res = await fetch(
-        `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&appid=${WEATHER_API_KEY}&units=metric`
-      );
-
-      const data = await res.json();
-
-      return {
-        weatherTemp:
-          typeof data?.main?.temp === 'number' ? Math.round(data.main.temp) : undefined,
-        weatherDescription:
-          typeof data?.weather?.[0]?.main === 'string' ? data.weather[0].main : undefined,
-      };
-    } catch (error) {
-      console.log('Weather error:', error);
-      return {};
-    }
-  };
-
   const normalizeImageForUpload = async (uri: string) => {
-  const result = await ImageManipulator.manipulateAsync(
-    uri,
-    [],
-    {
+    const result = await ImageManipulator.manipulateAsync(uri, [], {
       compress: 0.95,
       format: ImageManipulator.SaveFormat.JPEG,
-    }
-  );
-
-  return result.uri;
-};
-
-  const uploadImageToSupabase = async (uri: string) => {
-  const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
-
-  const response = await fetch(uri);
-  const arrayBuffer = await response.arrayBuffer();
-
-  const { error: uploadError } = await supabase.storage
-    .from('catches')
-    .upload(fileName, arrayBuffer, {
-      contentType: 'image/jpeg',
-      upsert: false,
     });
 
-  if (uploadError) throw uploadError;
+    return result.uri;
+  };
 
-  return fileName;
-};
+  const uploadImageToSupabase = async (uri: string) => {
+    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
 
+    const response = await fetch(uri);
+    const arrayBuffer = await response.arrayBuffer();
 
+    const { error: uploadError } = await supabase.storage
+      .from('catches')
+      .upload(fileName, arrayBuffer, {
+        contentType: 'image/jpeg',
+        upsert: false,
+      });
+
+    if (uploadError) throw uploadError;
+
+    return fileName;
+  };
 
   const saveCatch = async (localUri: string, source: 'camera' | 'upload') => {
     const normalizedUri = await normalizeImageForUpload(localUri);
@@ -143,8 +110,6 @@ export default function CaptureScreen() {
 
     let placeName: string | undefined;
     let regionName: string | undefined;
-    let weatherTemp: number | undefined;
-    let weatherDescription: string | undefined;
 
     if (source === 'camera') {
       try {
@@ -152,8 +117,9 @@ export default function CaptureScreen() {
 
         if (locationPermission.status === 'granted') {
           const loc = await Location.getCurrentPositionAsync({
-  accuracy: Location.Accuracy.Balanced,
-});
+            accuracy: Location.Accuracy.Balanced,
+          });
+
           const { latitude, longitude } = loc.coords;
 
           const geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
@@ -163,10 +129,6 @@ export default function CaptureScreen() {
             placeName = [place.city, place.region].filter(Boolean).join(', ');
             regionName = place.region || undefined;
           }
-
-          const weather = await getWeather(latitude, longitude);
-          weatherTemp = weather.weatherTemp;
-          weatherDescription = weather.weatherDescription;
         }
       } catch (locationError) {
         console.log('Location error:', locationError);
@@ -191,8 +153,6 @@ export default function CaptureScreen() {
           note: '',
           place_name: source === 'upload' ? null : placeName || null,
           region_name: source === 'upload' ? null : regionName || null,
-          weather_temp: source === 'upload' ? null : weatherTemp ?? null,
-          weather_description: source === 'upload' ? null : weatherDescription || null,
           is_personal_best: false,
           created_at: createdAt,
           source,
@@ -347,75 +307,76 @@ export default function CaptureScreen() {
   };
 
   const requestCameraAccess = async () => {
-  try {
-    const result = await requestPermission();
+    try {
+      const result = await requestPermission();
 
-    if (!result.granted) {
-      Alert.alert(
-        'Camera access needed',
-        'Please allow ReelWall to use your camera in Settings.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Open Settings', onPress: () => Linking.openSettings() },
-        ]
-      );
+      if (!result.granted) {
+        Alert.alert(
+          'Camera access needed',
+          'Please allow ReelWall to use your camera in Settings.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => Linking.openSettings() },
+          ]
+        );
+      }
+    } catch (error) {
+      console.log('Camera permission error:', error);
+      Alert.alert('Camera error', 'Could not request camera permission.');
     }
-  } catch (error) {
-    console.log('Camera permission error:', error);
-    Alert.alert('Camera error', 'Could not request camera permission.');
-  }
-};
+  };
 
   const pickImage = async () => {
-  try {
-    if (saving) return;
+    try {
+      if (saving) return;
 
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-    if (!permissionResult.granted) {
-      Alert.alert(
-        'Photo access needed',
-        'Please allow ReelWall to access your photos so you can upload catches.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Open Settings', onPress: () => Linking.openSettings() },
-        ]
-      );
-      return;
+      if (!permissionResult.granted) {
+        Alert.alert(
+          'Photo access needed',
+          'Please allow ReelWall to access your photos so you can upload catches.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => Linking.openSettings() },
+          ]
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: qualityValue,
+        allowsEditing: false,
+        allowsMultipleSelection: true,
+        selectionLimit: 20,
+      });
+
+      if (result.canceled || !result.assets?.length) return;
+
+      setSaving(true);
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+      for (let i = 0; i < result.assets.length; i++) {
+        const asset = result.assets[i];
+
+        if (!asset.uri) continue;
+
+        setBulkProgress(`Uploading ${i + 1} of ${result.assets.length}...`);
+        await saveCatch(asset.uri, 'upload');
+      }
+
+      setBulkProgress('');
+      await finishSuccess();
+    } catch (error: any) {
+      console.log('Bulk upload error:', error);
+      setSaving(false);
+      setBulkProgress('');
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('Upload failed', error?.message || 'Please try again.');
     }
+  };
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: qualityValue,
-      allowsEditing: false,
-      allowsMultipleSelection: true,
-      selectionLimit: 20,
-    });
-
-    if (result.canceled || !result.assets?.length) return;
-
-    setSaving(true);
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-    for (let i = 0; i < result.assets.length; i++) {
-      const asset = result.assets[i];
-
-      if (!asset.uri) continue;
-
-      setBulkProgress(`Uploading ${i + 1} of ${result.assets.length}...`);
-      await saveCatch(asset.uri, 'upload');
-    }
-
-    setBulkProgress('');
-    await finishSuccess();
-  } catch (error: any) {
-    console.log('Bulk upload error:', error);
-    setSaving(false);
-    setBulkProgress('');
-    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    Alert.alert('Upload failed', error?.message || 'Please try again.');
-  }
-};
   if (!permission) {
     return <View style={styles.container} />;
   }
@@ -429,8 +390,8 @@ export default function CaptureScreen() {
         </Text>
 
         <TouchableOpacity onPress={requestCameraAccess} style={styles.primaryButton}>
-  <Text style={styles.primaryButtonText}>Allow Camera</Text>
-</TouchableOpacity>
+          <Text style={styles.primaryButtonText}>Allow Camera</Text>
+        </TouchableOpacity>
 
         <TouchableOpacity onPress={pickImage} style={styles.secondaryButton}>
           <Text style={styles.secondaryButtonText}>Upload Instead</Text>
@@ -637,9 +598,8 @@ export default function CaptureScreen() {
           <View style={styles.uploadIconCircle}>
             <Ionicons name="images-outline" size={24} color="#0A2540" />
           </View>
-          <Text style={styles.uploadText}>
-  {bulkProgress || 'Upload'}
-</Text>
+
+          <Text style={styles.uploadText}>{bulkProgress || 'Upload'}</Text>
           <Text style={styles.uploadSubText}>Photos</Text>
         </TouchableOpacity>
 

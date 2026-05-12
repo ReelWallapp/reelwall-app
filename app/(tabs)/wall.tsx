@@ -31,8 +31,6 @@ type CatchItem = {
   catchDate?: string;
   placeName?: string;
   regionName?: string;
-  weatherTemp?: number;
-  weatherDescription?: string;
   note?: string;
   isPersonalBest?: boolean;
   isVaulted?: boolean;
@@ -130,8 +128,7 @@ export default function Home() {
     catchDate: item.catch_date || undefined,
     placeName: item.place_name || undefined,
     regionName: item.region_name || undefined,
-    weatherTemp: item.weather_temp ?? undefined,
-    weatherDescription: item.weather_description || undefined,
+    
     note: item.note || '',
     isPersonalBest: item.is_personal_best ?? false,
     isVaulted: item.is_vaulted ?? false,
@@ -232,18 +229,7 @@ useFocusEffect(
     return normalizeLocationText(item.placeName || item.regionName);
   };
 
-  const getDisplayedWeather = (item: CatchItem) => {
-    if (item.source === 'upload') return '';
-
-    if (item.weatherTemp !== undefined && item.weatherDescription) {
-      return `${item.weatherTemp}°C • ${item.weatherDescription}`;
-    }
-
-    if (item.weatherTemp !== undefined) return `${item.weatherTemp}°C`;
-    if (item.weatherDescription) return item.weatherDescription;
-
-    return '';
-  };
+  
 
   const getDisplayedDate = (item: CatchItem) => {
     if (!item.catchDate) return '';
@@ -339,6 +325,7 @@ useFocusEffect(
   };
 
   const togglePersonalBest = async (value: boolean) => {
+  await saveAll();
     if (!selectedCatch) return;
 
     try {
@@ -372,6 +359,8 @@ useFocusEffect(
 
   const mountCatch = async () => {
   if (!selectedCatch) return;
+  
+  await saveAll();
 
   try {
     const {
@@ -536,7 +525,43 @@ const deleteCatch = () => {
                   />
                   <View style={styles.featuredOverlay} />
 
+                
+
                   {renderEditBadge(latest)}
+
+{latest.isVaulted && (
+  <View
+    style={{
+      position: 'absolute',
+      top: 48,
+      left: 10,
+      backgroundColor: 'rgba(8,30,51,0.92)',
+      borderRadius: 999,
+      paddingVertical: 5,
+      paddingHorizontal: 9,
+      borderWidth: 1,
+      borderColor: 'rgba(242,201,76,0.75)',
+      shadowColor: '#F2C94C',
+      shadowOpacity: 0.35,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 0 },
+      elevation: 5,
+      zIndex: 4,
+    }}
+  >
+    <Text
+      style={{
+        color: '#F2C94C',
+        fontSize: 10,
+        fontWeight: '900',
+      }}
+    >
+      🔒 VAULTED
+    </Text>
+  </View>
+)}
+
+
 
                   <TouchableOpacity
                     style={styles.shareButton}
@@ -556,23 +581,7 @@ const deleteCatch = () => {
                       </View>
                     )}
 
-                 {latest.isVaulted && (
-  <View style={{
-    position: 'absolute',
-    top: 48,
-    left: 16,
-    backgroundColor: 'rgba(8,30,51,0.92)',
-    borderRadius: 999,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderWidth: 1,
-    borderColor: '#F2C94C',
-  }}>
-    <Text style={{ color: '#F2C94C', fontSize: 11, fontWeight: '900' }}>
-      🔒 VAULTED
-    </Text>
-  </View>
-)}
+              
 
                     {getDisplayedDate(latest) ? (
                       <Text style={styles.featuredDate}>{getDisplayedDate(latest)}</Text>
@@ -584,9 +593,7 @@ const deleteCatch = () => {
                       </Text>
                     ) : null}
 
-                    {getDisplayedWeather(latest) ? (
-                      <Text style={styles.featuredWeather}>{getDisplayedWeather(latest)}</Text>
-                    ) : null}
+                   
 
                     {latest.note ? (
                       <Text style={styles.featuredNote} numberOfLines={2}>
@@ -664,9 +671,7 @@ const deleteCatch = () => {
                       </View>
 
                       <View style={styles.cardBottom}>
-                        {getDisplayedWeather(item) ? (
-                          <Text style={styles.weatherText}>{getDisplayedWeather(item)}</Text>
-                        ) : null}
+                       
 
                         {!!item.note && (
                           <Text style={styles.notePreview} numberOfLines={1}>
@@ -858,7 +863,7 @@ const deleteCatch = () => {
                         setNoteDraft(text);
                         if (saveSuccess) setSaveSuccess(false);
                       }}
-                      placeholder="Tell the story..."
+                      placeholder="Tell the story... what made this one memorable?"
                       placeholderTextColor="#7D8FA3"
                       multiline
                       style={styles.noteInput}
@@ -1491,11 +1496,7 @@ vaultInfoButtonText: {
     fontWeight: '800',
     marginBottom: 4,
   },
-  featuredWeather: {
-    color: '#F2C94C',
-    fontSize: 13,
-    fontWeight: '700',
-  },
+ 
   featuredNote: {
     color: '#E8EEF3',
     fontSize: 13,
@@ -1552,10 +1553,10 @@ vaultInfoButtonText: {
   },
   cardPbIcon: { color: '#0A2540', fontSize: 9, fontWeight: '900', marginRight: 4 },
   cardPbText: { color: '#0A2540', fontSize: 10, fontWeight: '800' },
-  cardVaultBadge: {
+ cardVaultBadge: {
   position: 'absolute',
-  bottom: 10,
-  right: 10,
+  top: 48,
+  left: 10,
   flexDirection: 'row',
   alignItems: 'center',
   backgroundColor: 'rgba(8,30,51,0.92)',
@@ -1569,11 +1570,12 @@ vaultInfoButtonText: {
   shadowRadius: 8,
   shadowOffset: { width: 0, height: 0 },
   elevation: 5,
+  zIndex: 4,
 },
   
   imageLocation: { color: '#E3EAF0', fontSize: 12, fontWeight: '500' },
   cardBottom: { paddingTop: 8, paddingHorizontal: 4, minHeight: 24 },
-  weatherText: { color: '#F2C94C', fontSize: 11, fontWeight: '700' },
+  
   notePreview: {
     color: '#E6EDF3',
     fontSize: 11,
@@ -1717,8 +1719,7 @@ vaultInfoButtonText: {
     backgroundColor: '#081E33',
     borderRadius: 16,
     color: '#F5F7FA',
-    minHeight: 130,
-    maxHeight: 180,
+    minHeight: 140,
     padding: 12,
     textAlignVertical: 'top',
     fontSize: 15,

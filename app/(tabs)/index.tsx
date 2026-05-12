@@ -3,7 +3,7 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -22,6 +22,10 @@ import {
 } from 'react-native';
 import ViewShot from 'react-native-view-shot';
 import { supabase } from '../../lib/supabase';
+
+declare global {
+  var scrollMountsToTop: (() => void) | undefined;
+}
 
 type MountItem = {
   id: string;
@@ -115,6 +119,14 @@ export default function MountsHomeScreen() {
 
     listRef.current?.scrollToOffset({ offset: 0, animated: true });
   };
+
+  useEffect(() => {
+  global.scrollMountsToTop = scrollToTop;
+
+  return () => {
+    global.scrollMountsToTop = undefined;
+  };
+}, []);
 
   const getCurrentUserId = async () => {
     const {

@@ -116,47 +116,47 @@ export default function VaultScreen() {
     setPickerOpen(true);
   };
 
- const openVaultOrPreserve = async (item: CatchItem) => {
-  if (item.is_vaulted) {
-    const userId = await getCurrentUserId();
+  const openVaultOrPreserve = async (item: CatchItem) => {
+    if (item.is_vaulted) {
+      const userId = await getCurrentUserId();
 
-    const { data, error } = await supabase
-      .from('vault_records')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('catch_id', item.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      const { data, error } = await supabase
+        .from('vault_records')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('catch_id', item.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-    if (error) {
-      Alert.alert('Could not open certificate', error.message);
-      return;
+      if (error) {
+        Alert.alert('Could not open certificate', error.message);
+        return;
+      }
+
+      if (data?.id) {
+        setPickerOpen(false);
+        router.push(`/vault/${data.id}` as any);
+        return;
+      }
     }
 
-    if (data?.id) {
-      setPickerOpen(false);
-      router.push(`/vault/${data.id}` as any);
-      return;
-    }
-  }
-
-  Alert.alert(
-    'Preserve this record?',
-    'Vault records are designed to be permanent. Once secured, this record may remain even if you delete your account.',
-    [
-      {
-        text: 'Cancel',
-        style: 'cancel',
-      },
-      {
-        text: 'Preserve',
-        style: 'default',
-        onPress: () => preserveCatch(item),
-      },
-    ]
-  );
-};
+    Alert.alert(
+      'Preserve this record?',
+      'Vault creates a preserved snapshot of this moment — including the image, story, date, and details as they are right now.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Preserve',
+          style: 'default',
+          onPress: () => preserveCatch(item),
+        },
+      ]
+    );
+  };
 
   const preserveCatch = async (item: CatchItem) => {
     try {
@@ -182,15 +182,15 @@ export default function VaultScreen() {
       const { data: vaultRecord, error: vaultError } = await supabase
         .from('vault_records')
         .insert({
-  catch_id: item.id,
-  user_id: userId,
-  image_url: item.image_url,
-  story: item.note,
-  catch_date: item.catch_date,
-  place_name: item.place_name,
-  region_name: item.region_name,
-  mint_status: 'pending',
-})
+          catch_id: item.id,
+          user_id: userId,
+          image_url: item.image_url,
+          story: item.note,
+          catch_date: item.catch_date,
+          place_name: item.place_name,
+          region_name: item.region_name,
+          mint_status: 'pending',
+        })
         .select('*')
         .single();
 
@@ -210,20 +210,21 @@ export default function VaultScreen() {
         )
       );
 
-     setVaultRecords((prev) => [vaultRecord as VaultRecord, ...prev]);
+      setVaultRecords((prev) => [vaultRecord as VaultRecord, ...prev]);
 
-setPickerOpen(false);
+      setPickerOpen(false);
 
-router.push(`/vault/${vaultRecord.id}` as any);
-supabase.functions
-  .invoke('secure-vault-record', {
-    body: { recordId: vaultRecord.id },
-  })
-  .then(({ error }) => {
-    if (error) {
-      console.log('Auto-secure Vault error:', error);
-    }
-  });
+      router.push(`/vault/${vaultRecord.id}` as any);
+
+      supabase.functions
+        .invoke('secure-vault-record', {
+          body: { recordId: vaultRecord.id },
+        })
+        .then(({ error }) => {
+          if (error) {
+            console.log('Auto-secure Vault error:', error);
+          }
+        });
     } catch (error: any) {
       console.log('Preserve error:', error);
       Alert.alert('Error', error?.message || 'Could not preserve');
@@ -318,7 +319,7 @@ supabase.functions
             style={styles.secondaryButton}
             onPress={() => router.push(`/vault/${item.id}` as any)}
           >
-            <Text style={styles.secondaryButtonText}>View</Text>
+            <Text style={styles.secondaryButtonText}>View Certificate</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -352,8 +353,6 @@ supabase.functions
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#F2C94C" />
         }
       >
-       
-
         <View style={styles.content}>
           <Text style={styles.eyebrow}>LIVEWELL VAULT</Text>
 
@@ -368,8 +367,8 @@ supabase.functions
           <Text style={styles.title}>Your Best Moments, Preserved.</Text>
 
           <Text style={styles.subtitle}>
-            The memories worth keeping live here — secured, protected, and ready
-            when it matters.
+            LiveWell Vault adds an extra preservation layer for the fishing memories you never want
+            buried, changed, or forgotten.
           </Text>
 
           <View style={styles.taglineWrap}>
@@ -379,7 +378,7 @@ supabase.functions
 
           <View style={styles.statusCard}>
             <View style={styles.statusCopy}>
-              <Text style={styles.statusLabel}>MY VAULT</Text>
+              <Text style={styles.statusLabel}>MY LIVEWELL VAULT</Text>
 
               <Text style={styles.statusTitle}>
                 {hasRecords ? 'Vaulted Records' : 'Vault Ready'}
@@ -388,7 +387,7 @@ supabase.functions
               <Text style={styles.statusText}>
                 {hasRecords
                   ? 'Your most meaningful moments are preserved and ready to view or share.'
-                  : 'Choose from your mounted ReelWall catches and preserve the ones that matter most.'}
+                  : 'Choose from your mounted ReelWall memories and preserve the ones that matter most.'}
               </Text>
             </View>
 
@@ -396,6 +395,14 @@ supabase.functions
               <Text style={styles.recordCount}>{vaultRecords.length}</Text>
               <Text style={styles.recordCountLabel}>of {VAULT_LIMIT}</Text>
             </View>
+          </View>
+
+          <View style={styles.freeRecordsCard}>
+            <Text style={styles.freeRecordsBadge}>EARLY ACCESS</Text>
+            <Text style={styles.freeRecordsTitle}>3 Vault Records</Text>
+            <Text style={styles.freeRecordsText}>
+              Included for early anglers. Use them on the moments that truly matter.
+            </Text>
           </View>
 
           <TouchableOpacity
@@ -420,7 +427,75 @@ supabase.functions
             </Text>
           </TouchableOpacity>
 
-          <Text style={styles.promoText}>Early access: first 3 on us</Text>
+          <View style={styles.visualExplainerCard}>
+            <Text style={styles.infoBadge}>WHAT LIVEWELL VAULT ADDS</Text>
+            <Text style={styles.infoTitle}>Stored is safe. Preserved is intentional.</Text>
+
+            <View style={styles.compareGrid}>
+              <View style={styles.compareBox}>
+                <Text style={styles.compareIcon}>📁</Text>
+                <Text style={styles.compareTitle}>Stored</Text>
+                <Text style={styles.compareText}>
+                  Your regular ReelWall memories stay safe in the app, where you can edit,
+                  organize, mount, and update them.
+                </Text>
+              </View>
+
+              <View style={styles.compareArrowWrap}>
+                <Text style={styles.compareArrow}>→</Text>
+              </View>
+
+              <View style={[styles.compareBox, styles.compareBoxGold]}>
+                <Text style={styles.compareIcon}>🔒</Text>
+                <Text style={styles.compareTitleGold}>LiveWell Vaulted</Text>
+                <Text style={styles.compareText}>
+                  Vault creates a protected snapshot of the image, story, date, and details
+                  exactly as they existed when secured.
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.layerList}>
+              <View style={styles.layerItem}>
+                <View style={styles.layerIconWrap}>
+  <Text style={styles.layerIcon}>1</Text>
+</View>
+                <View style={styles.layerCopy}>
+                  <Text style={styles.layerTitle}>Snapshot created</Text>
+                  <Text style={styles.layerText}>
+                    The image, story, catch date, and location details are copied into a
+                    dedicated Vault record.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.layerItem}>
+                <View style={styles.layerIconWrap}>
+  <Text style={styles.layerIcon}>2</Text>
+</View>
+                <View style={styles.layerCopy}>
+                  <Text style={styles.layerTitle}>Certificate generated</Text>
+                  <Text style={styles.layerText}>
+                    Each vaulted memory gets its own certificate-style record and unique
+                    record ID.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.layerItem}>
+                <View style={styles.layerIconWrap}>
+  <Text style={styles.layerIcon}>3</Text>
+</View>
+                <View style={styles.layerCopy}>
+                  <Text style={styles.layerTitle}>Ready to verify and share</Text>
+                  <Text style={styles.layerText}>
+                    Vault records can be opened, shared, and verified through a dedicated
+                    record page and QR code.
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
 
           <View style={styles.vaultSection}>
             <View style={styles.sectionHeader}>
@@ -441,14 +516,12 @@ supabase.functions
                 <Text style={styles.emptyTitle}>Nothing vaulted yet</Text>
 
                 <Text style={styles.emptyText}>
-                  Your ReelWall holds the moments you chose to mount. Vault is
-                  where the ones that matter most are preserved for good.
+                  Your ReelWall holds the moments you chose to mount. Vault is where the
+                  ones that matter most become preserved records.
                 </Text>
 
                 <View style={styles.trustPill}>
-                  <Text style={styles.trustPillText}>
-                    🔒 Secure. Private. Built to last.
-                  </Text>
+                  <Text style={styles.trustPillText}>🔒 Secure. Private. Built to last.</Text>
                 </View>
               </View>
             ) : (
@@ -459,26 +532,36 @@ supabase.functions
           <View style={styles.infoCard}>
             <Text style={styles.infoBadge}>WHY IT MATTERS</Text>
             <Text style={styles.infoTitle}>Some moments deserve more than a post.</Text>
+
             <Text style={styles.infoText}>
-              ReelWall is where your best moments become part of your story.
-              Vault is where you preserve the ones you never want to lose.
+              All ReelWall angling memories are securely stored within the app.
+            </Text>
+
+            <Text style={styles.infoText}>
+              LiveWell Vault goes a step further by creating a preserved record of the
+              moments that matter most.
+            </Text>
+
+            <Text style={styles.infoText}>
+              Unlike ordinary storage or social posts that can become buried, altered,
+              compressed, or lost over time, vaulted records are built around permanence,
+              verification, and long-term memory keeping.
             </Text>
           </View>
 
           <View style={styles.proofCard}>
             <Text style={styles.proofTitle}>Built on your ReelWall</Text>
             <Text style={styles.proofText}>
-              Nothing changes about your ReelWall. Your photos, stories, and
-              mounted moments stay exactly where they are. Vault is an added
-              layer — for the moments you want to protect, preserve, and carry
-              forward.
+              Nothing changes about your ReelWall. Your photos, stories, and mounted
+              moments stay exactly where they are. Vault is an added layer for the moments
+              you want to protect, preserve, and carry forward.
             </Text>
           </View>
 
           <View style={styles.footerNote}>
             <Text style={styles.footerNoteText}>
-              Choose carefully. Your first 3 Vault records should be the catches
-              that truly matter.
+              Choose carefully. Your first 3 Vault records should be the catches that
+              truly matter.
             </Text>
           </View>
         </View>
@@ -539,16 +622,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 40,
-  },
- 
-  promoText: {
-    color: 'rgba(242, 201, 76, 0.7)',
-    fontSize: 10,
-    fontWeight: '700',
-    marginTop: -14,
-    marginBottom: 22,
-    letterSpacing: 0.5,
-    textAlign: 'center',
   },
   content: {
     paddingHorizontal: 20,
@@ -666,6 +739,43 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
+  freeRecordsCard: {
+    backgroundColor: '#0B253D',
+    borderRadius: 22,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(242, 201, 76, 0.45)',
+    marginBottom: 14,
+    shadowColor: '#F2C94C',
+    shadowOpacity: 0.24,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 6,
+  },
+  freeRecordsBadge: {
+    alignSelf: 'flex-start',
+    color: '#081E33',
+    backgroundColor: '#F2C94C',
+    fontSize: 10,
+    fontWeight: '900',
+    paddingVertical: 5,
+    paddingHorizontal: 9,
+    borderRadius: 999,
+    marginBottom: 10,
+    overflow: 'hidden',
+  },
+  freeRecordsTitle: {
+    color: '#F5F7FA',
+    fontSize: 21,
+    fontWeight: '900',
+    marginBottom: 5,
+  },
+  freeRecordsText: {
+    color: '#A5B3C2',
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '700',
+  },
   primaryButton: {
     backgroundColor: '#F2C94C',
     borderRadius: 999,
@@ -691,6 +801,102 @@ const styles = StyleSheet.create({
     marginTop: 2,
     letterSpacing: 0.5,
     textTransform: 'uppercase',
+  },
+  visualExplainerCard: {
+    backgroundColor: 'rgba(16, 44, 71, 0.9)',
+    borderRadius: 24,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(242, 201, 76, 0.18)',
+    marginBottom: 18,
+  },
+  compareGrid: {
+    marginTop: 12,
+    marginBottom: 18,
+  },
+  compareBox: {
+    backgroundColor: '#081E33',
+    borderRadius: 18,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.07)',
+  },
+  compareBoxGold: {
+    borderColor: 'rgba(242, 201, 76, 0.42)',
+    backgroundColor: '#0B253D',
+  },
+  compareArrowWrap: {
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  compareArrow: {
+    color: '#F2C94C',
+    fontSize: 26,
+    fontWeight: '900',
+  },
+  compareIcon: {
+    fontSize: 26,
+    marginBottom: 8,
+  },
+  compareTitle: {
+    color: '#F5F7FA',
+    fontSize: 18,
+    fontWeight: '900',
+    marginBottom: 6,
+  },
+  compareTitleGold: {
+    color: '#F2C94C',
+    fontSize: 18,
+    fontWeight: '900',
+    marginBottom: 6,
+  },
+  compareText: {
+    color: '#A5B3C2',
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '700',
+  },
+  layerList: {
+    gap: 12,
+  },
+  layerItem: {
+    flexDirection: 'row',
+    gap: 12,
+    backgroundColor: '#0B253D',
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+  },
+  layerIconWrap: {
+  width: 30,
+  height: 30,
+  borderRadius: 999,
+  backgroundColor: '#F2C94C',
+  justifyContent: 'center',
+  alignItems: 'center',
+  flexShrink: 0,
+},
+layerIcon: {
+  color: '#081E33',
+  fontSize: 13,
+  fontWeight: '900',
+  textAlign: 'center',
+},
+  layerCopy: {
+    flex: 1,
+  },
+  layerTitle: {
+    color: '#F5F7FA',
+    fontSize: 15,
+    fontWeight: '900',
+    marginBottom: 4,
+  },
+  layerText: {
+    color: '#A5B3C2',
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '700',
   },
   vaultSection: {
     marginBottom: 16,
@@ -846,6 +1052,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 999,
     marginBottom: 12,
+    overflow: 'hidden',
   },
   infoTitle: {
     color: '#F5F7FA',
@@ -858,6 +1065,7 @@ const styles = StyleSheet.create({
     color: '#A5B3C2',
     fontSize: 14,
     lineHeight: 22,
+    marginBottom: 10,
   },
   proofCard: {
     backgroundColor: '#0B253D',

@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase';
 import { VaultRecord } from '@/lib/types/vault';
 import { formatDate, getLocation, getPublicImageUrl } from '@/lib/vaultFormatters';
 import { MaterialIcons } from '@expo/vector-icons';
+import * as MediaLibrary from 'expo-media-library';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import React, { useEffect, useRef, useState } from 'react';
@@ -128,6 +129,39 @@ export default function VaultDetailScreen() {
       setWorking(false);
     }
   };
+
+  const saveCertificateToPhotos = async () => {
+  if (!record) return;
+
+  try {
+    setWorking(true);
+
+    const permission = await MediaLibrary.requestPermissionsAsync();
+
+    if (!permission.granted) {
+      Alert.alert('Photo access needed', 'Please allow ReelWall to save certificates to your photos.');
+      return;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 800));
+
+    const imageUri = await (certificateRef.current as any)?.capture?.();
+
+    if (!imageUri) {
+      Alert.alert('Could not generate certificate image');
+      return;
+    }
+
+    await MediaLibrary.saveToLibraryAsync(imageUri);
+
+    Alert.alert('Saved', 'Certificate saved to your photos.');
+  } catch (error: any) {
+    console.log('Save certificate error:', error);
+    Alert.alert('Could not save certificate', error?.message || 'Please try again.');
+  } finally {
+    setWorking(false);
+  }
+};
 
   if (loading) {
     return (
@@ -280,6 +314,15 @@ export default function VaultDetailScreen() {
           )}
         </TouchableOpacity>
 
+        <TouchableOpacity
+  activeOpacity={0.86}
+  style={styles.secondaryActionButton}
+  onPress={saveCertificateToPhotos}
+  disabled={working}
+>
+  <Text style={styles.secondaryActionButtonText}>Save Certificate</Text>
+</TouchableOpacity>
+
         <Text style={styles.footerNote}>Verified by LiveWell Vault</Text>
       </ScrollView>
     </SafeAreaView>
@@ -313,6 +356,22 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     marginBottom: 16,
   },
+
+  secondaryActionButton: {
+  backgroundColor: CARD,
+  borderRadius: 999,
+  paddingVertical: 15,
+  alignItems: 'center',
+  marginBottom: 12,
+  borderWidth: 1,
+  borderColor: 'rgba(242,201,76,0.35)',
+},
+
+secondaryActionButtonText: {
+  color: PRIMARY,
+  fontSize: 15,
+  fontWeight: '900',
+},
   topGlow: {
     position: 'absolute',
     top: -70,

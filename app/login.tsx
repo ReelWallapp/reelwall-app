@@ -15,8 +15,10 @@ import { supabase } from '../lib/supabase';
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [codeSent, setCodeSent] = useState(false);
+  const [usePasswordLogin, setUsePasswordLogin] = useState(false);
 
   const trimmedEmail = email.trim().toLowerCase();
 
@@ -47,15 +49,34 @@ export default function LoginScreen() {
     }
   };
 
-  const signInDemo = async () => {
+  const revealPasswordLogin = () => {
+    setUsePasswordLogin(true);
+    setCode('');
+    setCodeSent(false);
+  };
+
+  const signInWithPassword = async () => {
+    if (!trimmedEmail || !trimmedEmail.includes('@')) {
+      Alert.alert('Enter a valid email');
+      return;
+    }
+
+    if (!password.trim()) {
+      Alert.alert('Enter your password');
+      return;
+    }
+
     try {
       setLoading(true);
 
-      const { error } = await supabase.auth.signInAnonymously();
+      const { error } = await supabase.auth.signInWithPassword({
+        email: trimmedEmail,
+        password: password.trim(),
+      });
 
       if (error) throw error;
     } catch (error: any) {
-      Alert.alert('Demo login failed', error?.message || 'Please try again');
+      Alert.alert('Login failed', error?.message || 'Please try again');
     } finally {
       setLoading(false);
     }
@@ -99,6 +120,10 @@ export default function LoginScreen() {
     }
   };
 
+  const showEmailCodeLogin = !usePasswordLogin && !codeSent;
+  const showPasswordLogin = usePasswordLogin;
+  const showCodeVerify = !usePasswordLogin && codeSent;
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
@@ -123,29 +148,58 @@ export default function LoginScreen() {
             editable={!loading}
           />
 
-          {!codeSent ? (
+          {showEmailCodeLogin && (
             <>
               <TouchableOpacity
-                style={[styles.button, loading && styles.buttonDisabled]}
-                onPress={sendCode}
-                disabled={loading}
-              >
+  style={[styles.button, loading && styles.buttonDisabled]}
+  onPress={sendCode}
+  onLongPress={revealPasswordLogin}
+  delayLongPress={3000}
+  disabled={loading}
+>
                 <Text style={styles.buttonText}>
                   {loading ? 'Sending...' : 'Send Code'}
                 </Text>
               </TouchableOpacity>
+            </>
+          )}
+
+          {showPasswordLogin && (
+            <>
+              <TextInput
+                value={password}
+                onChangeText={setPassword}
+                placeholder="password"
+                placeholderTextColor="#7D8FA3"
+                secureTextEntry
+                style={styles.input}
+                editable={!loading}
+              />
 
               <TouchableOpacity
-                onPress={signInDemo}
-                style={[styles.demoButton, loading && styles.buttonDisabled]}
+                style={[styles.button, loading && styles.buttonDisabled]}
+                onPress={signInWithPassword}
                 disabled={loading}
               >
-                <Text style={styles.demoButtonText}>
-  Continue as Demo User
-</Text>
+                <Text style={styles.buttonText}>
+                  {loading ? 'Signing in...' : 'Sign In'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.linkButton}
+                onPress={() => {
+                  setUsePasswordLogin(false);
+                  setPassword('');
+                }}
+                disabled={loading}
+              >
+                <Text style={styles.linkButtonText}>Use email code instead</Text>
               </TouchableOpacity>
             </>
-          ) : (
+          )}
+
+          {showCodeVerify && (
             <>
               <TextInput
                 value={code}
@@ -179,16 +233,6 @@ export default function LoginScreen() {
               </TouchableOpacity>
 
               <TouchableOpacity
-                onPress={signInDemo}
-                style={[styles.demoButton, loading && styles.buttonDisabled]}
-                disabled={loading}
-              >
-                <Text style={styles.demoButtonText}>
-                  Explore without an account
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
                 style={styles.linkButton}
                 onPress={() => {
                   setCode('');
@@ -202,8 +246,8 @@ export default function LoginScreen() {
           )}
 
           <Text style={styles.helper}>
-            ReelWall uses your email to connect your profile and collections. Demo
-            mode is temporary and may not save your progress.
+            ReelWall uses your email to connect your profile, collections, and
+            saved fishing memories.
           </Text>
         </View>
       </KeyboardAvoidingView>
@@ -297,19 +341,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 20,
     marginTop: 10,
-  },
-  demoButton: {
-    marginTop: 12,
-    paddingVertical: 14,
-    borderRadius: 14,
-    backgroundColor: '#12314F',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(242,201,76,0.5)',
-  },
-  demoButtonText: {
-    color: '#F2C94C',
-    fontSize: 15,
-    fontWeight: '800',
   },
 });
